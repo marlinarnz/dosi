@@ -32,7 +32,7 @@ adoptions_df.loc[
 ] = "drivers license"
 
 # For debugging: only 2 innovation names
-if True:
+if False:
     adoptions_df = adoptions_df[
         adoptions_df["Innovation Name"].isin(["Quitting smoking", "car sharing"])
     ]
@@ -246,7 +246,7 @@ print(
 line_x_buffer = 10
 
 # Initialize PDF
-pdf_file = f"{path}/scatterplots_v4.pdf"
+pdf_file = f"{path}/scatterplots_v5.pdf"
 with PdfPages(pdf_file) as pdf:
     # # Group the data
     grouped = adoptions_df.groupby(group_vars)
@@ -260,7 +260,7 @@ with PdfPages(pdf_file) as pdf:
             group_data["Value"],
             label="Data Points",
             color="black",
-            s=20,
+            s=40,
         )
 
         x_line = np.arange(
@@ -312,44 +312,48 @@ with PdfPages(pdf_file) as pdf:
         mae_lin = np.mean(np.abs(group_data["Value"] - y_pred))
         plt.plot(x_line, y_line_lin, color=line_color_lin, label="Linear")
 
-        # Box with parameters
-        props = dict(boxstyle="round", facecolor="white", alpha=0.8, edgecolor="gray")
+        if False:
 
-        # Logistic
-        plt.text(
-            0.95,
-            0.95,
-            f"""Logistic t0={t0:.0f}, Dt={Dt:.3g}, S={s:.3g} - RMSE = {rmse_log:.3g} - MAE = {mae_log:.3g}""",
-            transform=plt.gca().transAxes,
-            fontsize=10,
-            color=line_color_log,
-            verticalalignment="top",
-            horizontalalignment="right",
-            bbox=props,
-        )
+            # Box with parameters
+            props = dict(
+                boxstyle="round", facecolor="white", alpha=0.8, edgecolor="gray"
+            )
 
-        plt.text(
-            0.95,
-            0.90,
-            f"""Exponential {a:.3g}*exp({b:.3g}*(x-{c:.0f}) - RMSE = {rmse_exp:.3g} - MAE = {mae_exp:.3g}""",
-            transform=plt.gca().transAxes,
-            fontsize=10,
-            color=line_color_exp,
-            verticalalignment="top",
-            horizontalalignment="right",
-            bbox=props,
-        )
-        plt.text(
-            0.95,
-            0.85,
-            f"""Linear slope={slope:.3g}, intercept={intercept:.3g} - RMSE = {rmse_lin:.3g} - MAE = {mae_lin:.3g}""",
-            transform=plt.gca().transAxes,
-            fontsize=10,
-            color=line_color_lin,
-            verticalalignment="top",
-            horizontalalignment="right",
-            bbox=props,
-        )
+            # Logistic
+            plt.text(
+                0.95,
+                0.95,
+                f"""Logistic t0={t0:.0f}, Dt={Dt:.3g}, S={s:.3g} - RMSE = {rmse_log:.3g} - MAE = {mae_log:.3g}""",
+                transform=plt.gca().transAxes,
+                fontsize=10,
+                color=line_color_log,
+                verticalalignment="top",
+                horizontalalignment="right",
+                bbox=props,
+            )
+
+            plt.text(
+                0.95,
+                0.90,
+                f"""Exponential {a:.3g}*exp({b:.3g}*(x-{c:.0f}) - RMSE = {rmse_exp:.3g} - MAE = {mae_exp:.3g}""",
+                transform=plt.gca().transAxes,
+                fontsize=10,
+                color=line_color_exp,
+                verticalalignment="top",
+                horizontalalignment="right",
+                bbox=props,
+            )
+            plt.text(
+                0.95,
+                0.85,
+                f"""Linear slope={slope:.3g}, intercept={intercept:.3g} - RMSE = {rmse_lin:.3g} - MAE = {mae_lin:.3g}""",
+                transform=plt.gca().transAxes,
+                fontsize=10,
+                color=line_color_lin,
+                verticalalignment="top",
+                horizontalalignment="right",
+                bbox=props,
+            )
 
         code = "_".join(
             [
@@ -360,16 +364,39 @@ with PdfPages(pdf_file) as pdf:
 
         # Try table on top:
 
+        column_labels = ["Curve type", "Curve parameters", "RMSE", "MAE"]
+
         # Add a table
-        table_data = [["A", "B", "C"], ["1", "2", "3"], ["4", "5", "6"]]
+        table_data = [
+            column_labels,
+            [
+                "Logistic",
+                f"""t0={t0:.0f}, Dt={Dt:.3g}, S={s:.3g}""",
+                f"{rmse_log:.3g}",
+                f"{mae_log:.3g}",
+            ],
+            [
+                "Exponential",
+                f"""{a:.3g}*exp({b:.3g}*(x-{c:.0f})""",
+                f"{rmse_exp:.3g}",
+                f"{mae_exp:.3g}",
+            ],
+            [
+                "Linear",
+                f"""slope={slope:.3g}, intercept={intercept:.3g}""",
+                f"{rmse_lin:.3g}",
+                f"{mae_lin:.3g}",
+            ],
+        ]
         table_colors = [
-            ["red", "green", "blue"],
-            ["blue", "red", "green"],
-            ["green", "blue", "red"],
+            ["black"] * 4,
+            [line_color_log, line_color_log, "black", "black"],
+            [line_color_exp, line_color_exp, "black", "black"],
+            [line_color_lin, line_color_lin, "black", "black"],
         ]
 
         # Create a table object
-        table = Table(ax, bbox=[0.5, 0.5, 0.4, 0.3])  # Adjust bbox for positioning
+        table = Table(ax, bbox=[0.5, 0.75, 0.4, 0.15])  # Adjust bbox for positioning
         nrows, ncols = len(table_data), len(table_data[0])
 
         for row in range(nrows):
@@ -386,7 +413,10 @@ with PdfPages(pdf_file) as pdf:
                     facecolor="white",
                     edgecolor="black",
                 )
+                cell.set_facecolor("#ffffff")
+                cell.set_alpha(1.0)
                 cell.set_text_props(color=cell_color)  # Set text color for the cell
+        table.auto_set_column_width(col=list(range(len(column_labels))))
 
         # Add the table to the axes
         ax.add_table(table)
