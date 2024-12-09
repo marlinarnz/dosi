@@ -10,14 +10,16 @@
 
 import pandas as pd
 import numpy as np
+import re
 from sklearn.linear_model import LinearRegression
 from scipy.optimize import curve_fit
 from scipy.stats import linregress
 import matplotlib.pyplot as plt
+from matplotlib.table import Table
 from matplotlib.backends.backend_pdf import PdfPages
 
 path = "/mnt/c/Users/simon.destercke/Documents/misc/iiasa/DoSI"
-fn_data = f"{path}/Trial_Data_Results.xlsx"
+fn_data = f"{path}/Cleaned_File_Data_Results 5Dec.xlsx"
 
 adoptions_df = pd.read_excel(
     fn_data, sheet_name="Sheet1", converters={"Indicator Number": str}
@@ -25,10 +27,70 @@ adoptions_df = pd.read_excel(
 adoptions_df["Value"] = pd.to_numeric(adoptions_df["Value"], errors="coerce")
 adoptions_df = adoptions_df.dropna(subset=["Value"])
 
+adoptions_df.loc[
+    adoptions_df["Innovation Name"] == "drivers licence", "Innovation Name"
+] = "drivers license"
+
+# For debugging: only 2 innovation names
+if True:
+    adoptions_df = adoptions_df[
+        adoptions_df["Innovation Name"].isin(["Quitting smoking", "car sharing"])
+    ]
+
 print(adoptions_df)
 
-## Formula for logistic fit
-# 1/(1+exp(-log(81,base=exp(1))/deltaT*(Year-t0))
+fn_metadata = f"{path}/metadata labels 5Dec_SDS.xlsx"
+
+
+def convert_to_three_digit_notation(s):
+    return re.sub(r"([a-zA-Z])(\d+)", lambda m: f"{m.group(1)}{int(m.group(2)):03}", s)
+
+
+def read_metadata_table(fn, columns):
+    df = pd.read_excel(fn, usecols=columns, dtype=str).dropna().reset_index(drop=True)
+    df.iloc[:, 1] = df.iloc[:, 1].apply(convert_to_three_digit_notation)
+    return df.set_index(df.columns[0])[df.columns[1]].to_dict()
+
+
+categories = read_metadata_table(fn_metadata, "A,B")
+
+metadata = dict()
+metadata["Innovation Name"] = read_metadata_table(fn_metadata, "A,D")
+metadata["Spatial Scale"] = read_metadata_table(fn_metadata, "G,I")
+metadata["Indicator Number"] = read_metadata_table(
+    fn_metadata, "L,O"
+)  # Column M is the indicator name. Superfluous because maps 1-1 on indicator number
+metadata["Description"] = read_metadata_table(fn_metadata, "R,S")
+metadata["Metric"] = read_metadata_table(fn_metadata, "V,W")
+
+for key, nested_dict in metadata.items():
+    if isinstance(nested_dict, dict):  # Ensure the value is a dictionary
+        metadata[key] = {
+            k.lower() if isinstance(k, str) else k: v for k, v in nested_dict.items()
+        }
+
+group_vars = list(metadata.keys()) + ["Indicator Name"]
+
+# Failed attempt below to go for alphabetic ordering of codes
+grouped = adoptions_df.groupby(group_vars)
+
+code = []
+groups = []
+
+# Loop through each group and create the code
+for group_name, group_data in grouped:
+    groups.append(group_name)
+    code.append(
+        "_".join(
+            [
+                metadata[group_vars[i]][group_name[i].lower()]
+                for i in range(len(metadata))
+            ]
+        )
+    )
+
+# sorted_groups = [t for _, t in sorted(zip(code, groups), key=lambda x: x[0])]
+# grouped = pd.concat([grouped.get_group(key) for key in sorted_groups])
 
 
 def FPLogFit(x, y, threshold=0, thresholdup=0):
@@ -119,17 +181,6 @@ def exponential_func(x, a, b, c):
     return a * np.exp(b * (x - c))
 
 
-# Group by variables
-group_vars = [
-    "Innovation Name",
-    "Indicator Number",
-    "Indicator Name",
-    "Description",
-    "Metric",
-    "Sheet",
-]
-
-
 # Apply FPLogfit to each group
 def apply_FPLogFit_with_scaling(group):
     result = FPLogFit_with_scaling(group["Year"], group["Value"])
@@ -195,16 +246,21 @@ print(
 line_x_buffer = 10
 
 # Initialize PDF
-pdf_file = f"{path}/scatterplots_v3.pdf"
+pdf_file = f"{path}/scatterplots_v4.pdf"
 with PdfPages(pdf_file) as pdf:
-    # Group the data
+    # # Group the data
     grouped = adoptions_df.groupby(group_vars)
 
     # Loop through each group and create a scatterplot
     for group_name, group_data in grouped:
-        plt.figure(figsize=(12, 8))
+        fig = plt.figure(figsize=(12, 9), constrained_layout=True)
+        ax = fig.add_subplot(1, 1, 1)
         plt.scatter(
-            group_data["Year"], group_data["Value"], label="Data Points", color="black"
+            group_data["Year"],
+            group_data["Value"],
+            label="Data Points",
+            color="black",
+            s=20,
         )
 
         x_line = np.arange(
@@ -225,7 +281,9 @@ with PdfPages(pdf_file) as pdf:
         y_pred = FPLogValue_with_scaling(group_data["Year"], t0, Dt, s)
         rmse_log = np.sqrt(np.mean((group_data["Value"] - y_pred) ** 2))
         mae_log = np.mean(np.abs(group_data["Value"] - y_pred))
-        plt.plot(x_line, y_line_log, color=line_color_log, label="Logistic", marker="+")
+        plt.plot(
+            x_line, y_line_log, color=line_color_log, label="Logistic"
+        )  # , marker="+")
 
         # Exponential fit line
         line_color_exp = "red"
@@ -293,10 +351,56 @@ with PdfPages(pdf_file) as pdf:
             bbox=props,
         )
 
-        plt.title("\n".join(group_name))
+        code = "_".join(
+            [
+                metadata[group_vars[i]][group_name[i].lower()]
+                for i in range(len(metadata))
+            ]
+        )
+
+        # Try table on top:
+
+        # Add a table
+        table_data = [["A", "B", "C"], ["1", "2", "3"], ["4", "5", "6"]]
+        table_colors = [
+            ["red", "green", "blue"],
+            ["blue", "red", "green"],
+            ["green", "blue", "red"],
+        ]
+
+        # Create a table object
+        table = Table(ax, bbox=[0.5, 0.5, 0.4, 0.3])  # Adjust bbox for positioning
+        nrows, ncols = len(table_data), len(table_data[0])
+
+        for row in range(nrows):
+            for col in range(ncols):
+                cell_text = table_data[row][col]
+                cell_color = table_colors[row][col]
+                cell = table.add_cell(
+                    row,
+                    col,
+                    width=0.1,
+                    height=0.1,
+                    text=cell_text,
+                    loc="center",
+                    facecolor="white",
+                    edgecolor="black",
+                )
+                cell.set_text_props(color=cell_color)  # Set text color for the cell
+
+        # Add the table to the axes
+        ax.add_table(table)
+
+        # Find max y for plotting
+        lines = ax.get_lines()
+
+        # Find the maximum y-value
+        max_y_lines = max(max(line.get_ydata()) for line in lines)
+
+        plt.title("\n".join(list(group_name) + [code]))
         plt.xlabel("Year")
         plt.ylabel("Value")
-        plt.ylim(bottom=0)
+        plt.ylim(bottom=0, top=min(max(group_data["Value"]) * 2, max_y_lines))
         plt.grid(True)
 
         # Save the current plot to the PDF
