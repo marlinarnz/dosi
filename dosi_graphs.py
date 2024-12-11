@@ -18,6 +18,8 @@ import matplotlib.pyplot as plt
 from matplotlib.table import Table
 from matplotlib.backends.backend_pdf import PdfPages
 
+VERSION = "v7"
+
 path = "/mnt/c/Users/simon.destercke/Documents/misc/iiasa/DoSI"
 fn_data = f"{path}/Cleaned_File_Data_Results 5Dec.xlsx"
 
@@ -74,13 +76,12 @@ group_vars = list(metadata.keys()) + ["Indicator Name"]
 # Failed attempt below to go for alphabetic ordering of codes
 grouped = adoptions_df.groupby(group_vars)
 
-code = []
+codes = []
 groups = []
-
 # Loop through each group and create the code
 for group_name, group_data in grouped:
     groups.append(group_name)
-    code.append(
+    codes.append(
         "_".join(
             [
                 metadata[group_vars[i]][group_name[i].lower()]
@@ -88,9 +89,7 @@ for group_name, group_data in grouped:
             ]
         )
     )
-
-# sorted_groups = [t for _, t in sorted(zip(code, groups), key=lambda x: x[0])]
-# grouped = pd.concat([grouped.get_group(key) for key in sorted_groups])
+sorted_indices = sorted(range(len(codes)), key=lambda i: codes[i])
 
 
 def FPLogFit(x, y, threshold=0, thresholdup=0):
@@ -246,13 +245,18 @@ print(
 line_x_buffer = 10
 
 # Initialize PDF
-pdf_file = f"{path}/scatterplots_v5.pdf"
+pdf_file = f"{path}/scatterplots_{VERSION}.pdf"
 with PdfPages(pdf_file) as pdf:
     # # Group the data
     grouped = adoptions_df.groupby(group_vars)
 
     # Loop through each group and create a scatterplot
-    for group_name, group_data in grouped:
+    for i in range(len(grouped)):
+
+        sorted_index = sorted_indices[i]
+
+        group_name, group_data = list(grouped)[sorted_index]
+
         fig = plt.figure(figsize=(12, 9), constrained_layout=True)
         ax = fig.add_subplot(1, 1, 1)
         plt.scatter(
@@ -312,55 +316,7 @@ with PdfPages(pdf_file) as pdf:
         mae_lin = np.mean(np.abs(group_data["Value"] - y_pred))
         plt.plot(x_line, y_line_lin, color=line_color_lin, label="Linear")
 
-        if False:
-
-            # Box with parameters
-            props = dict(
-                boxstyle="round", facecolor="white", alpha=0.8, edgecolor="gray"
-            )
-
-            # Logistic
-            plt.text(
-                0.95,
-                0.95,
-                f"""Logistic t0={t0:.0f}, Dt={Dt:.3g}, S={s:.3g} - RMSE = {rmse_log:.3g} - MAE = {mae_log:.3g}""",
-                transform=plt.gca().transAxes,
-                fontsize=10,
-                color=line_color_log,
-                verticalalignment="top",
-                horizontalalignment="right",
-                bbox=props,
-            )
-
-            plt.text(
-                0.95,
-                0.90,
-                f"""Exponential {a:.3g}*exp({b:.3g}*(x-{c:.0f}) - RMSE = {rmse_exp:.3g} - MAE = {mae_exp:.3g}""",
-                transform=plt.gca().transAxes,
-                fontsize=10,
-                color=line_color_exp,
-                verticalalignment="top",
-                horizontalalignment="right",
-                bbox=props,
-            )
-            plt.text(
-                0.95,
-                0.85,
-                f"""Linear slope={slope:.3g}, intercept={intercept:.3g} - RMSE = {rmse_lin:.3g} - MAE = {mae_lin:.3g}""",
-                transform=plt.gca().transAxes,
-                fontsize=10,
-                color=line_color_lin,
-                verticalalignment="top",
-                horizontalalignment="right",
-                bbox=props,
-            )
-
-        code = "_".join(
-            [
-                metadata[group_vars[i]][group_name[i].lower()]
-                for i in range(len(metadata))
-            ]
-        )
+        code = codes[sorted_index]
 
         # Try table on top:
 
@@ -377,7 +333,7 @@ with PdfPages(pdf_file) as pdf:
             ],
             [
                 "Exponential",
-                f"""{a:.3g}*exp({b:.3g}*(x-{c:.0f})""",
+                f"""{a:.3g}*exp({b:.3g}*(x-{c:.0f}))""",
                 f"{rmse_exp:.3g}",
                 f"{mae_exp:.3g}",
             ],
@@ -420,6 +376,7 @@ with PdfPages(pdf_file) as pdf:
 
         # Add the table to the axes
         ax.add_table(table)
+        table.set_zorder(5)
 
         # Find max y for plotting
         lines = ax.get_lines()
