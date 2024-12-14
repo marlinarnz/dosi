@@ -18,10 +18,11 @@ import matplotlib.pyplot as plt
 from matplotlib.table import Table
 from matplotlib.backends.backend_pdf import PdfPages
 
-VERSION = "v8"
+VERSION = "v9"
+SMALL_SUBSET = False  # Do you only want a small subset for testing?
 
 path = "/mnt/c/Users/simon.destercke/Documents/misc/iiasa/DoSI"
-fn_data = f"{path}/Cleaned_File_Data_Results 5Dec.xlsx"
+fn_data = f"{path}/Merged_Cleaned_Pitchbook_WebOfScience_Data.xlsx"
 
 adoptions_df = pd.read_excel(
     fn_data, sheet_name="Sheet1", converters={"Indicator Number": str}
@@ -34,7 +35,7 @@ adoptions_df.loc[
 ] = "drivers license"
 
 # For debugging: only 2 innovation names
-if True:
+if SMALL_SUBSET:
     adoptions_df = adoptions_df[
         adoptions_df["Innovation Name"].isin(["Quitting smoking", "car sharing"])
     ]
@@ -64,6 +65,17 @@ metadata["Indicator Number"] = read_metadata_table(
 )  # Column M is the indicator name. Superfluous because maps 1-1 on indicator number
 metadata["Description"] = read_metadata_table(fn_metadata, "R,S")
 metadata["Metric"] = read_metadata_table(fn_metadata, "V,W")
+
+# If metadata file is not in sync with the data table, remake the description dictionary
+metadata["Description"] = {
+    val: f"d{idx}"
+    for idx, val in enumerate(sorted(adoptions_df["Description"].unique()), start=1)
+}
+# If metadata file is not in sync with the data table, remake the description dictionary
+metadata["Metric"] = {
+    val: f"m{idx}"
+    for idx, val in enumerate(sorted(adoptions_df["Metric"].unique()), start=1)
+}
 
 for key, nested_dict in metadata.items():
     if isinstance(nested_dict, dict):  # Ensure the value is a dictionary
@@ -150,7 +162,7 @@ def FPLogFit_with_scaling(x, y, Dt_initial_guess: float = 10, firstrun: bool = T
     """
 
     if len(x) < 3:
-        return {"t0": 2300, "Dt": 2000, "K": 1.0}  # Default parameters
+        return {"t0": None, "Dt": None, "K": None}  # Default parameters
     else:
         # Initial guesses for the parameters
         initial_guess = [np.median(x), Dt_initial_guess, np.max(y)]
