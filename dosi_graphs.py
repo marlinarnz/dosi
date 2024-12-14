@@ -18,8 +18,8 @@ import matplotlib.pyplot as plt
 from matplotlib.table import Table
 from matplotlib.backends.backend_pdf import PdfPages
 
-VERSION = "v9"
-SMALL_SUBSET = False  # Do you only want a small subset for testing?
+VERSION = "v10"
+SMALL_SUBSET = True  # Do you only want a small subset for testing?
 
 path = "/mnt/c/Users/simon.destercke/Documents/misc/iiasa/DoSI"
 fn_data = f"{path}/Merged_Cleaned_Pitchbook_WebOfScience_Data.xlsx"
@@ -237,6 +237,16 @@ def apply_linear_fit(group_df):
     )
 
 
+# Calculate R^2 and adjusted R^2
+def calculate_adjusted_r2(y_obs, y_pred, n_params):
+    ss_res = np.sum((y_obs - y_pred) ** 2)
+    ss_tot = np.sum((y_obs - np.mean(y_obs)) ** 2)
+    r2 = 1 - (ss_res / ss_tot)
+    n = len(y_obs)
+    r2_adj = 1 - ((1 - r2) * (n - 1) / (n - n_params - 1))
+    return r2, r2_adj
+
+
 results_logistic = (
     adoptions_df.groupby(group_vars).apply(apply_FPLogFit_with_scaling).reset_index()
 )
@@ -297,6 +307,9 @@ with PdfPages(pdf_file) as pdf:
         k = results_filtered["K"].values[0]
         y_line_log = FPLogValue_with_scaling(x_line, t0, Dt, k)
         y_pred = FPLogValue_with_scaling(group_data["Year"], t0, Dt, k)
+        r2_log, r2adj_log = calculate_adjusted_r2(
+            group_data["Value"], y_pred, n_params=3
+        )
         rmse_log = np.sqrt(np.mean((group_data["Value"] - y_pred) ** 2))
         mae_log = np.mean(np.abs(group_data["Value"] - y_pred))
         plt.plot(
@@ -313,6 +326,9 @@ with PdfPages(pdf_file) as pdf:
         c = results_filtered["c"].values[0]
         y_line_exp = exponential_func(x_line, a, b, c)
         y_pred = exponential_func(group_data["Year"], a, b, c)
+        r2_exp, r2adj_exp = calculate_adjusted_r2(
+            group_data["Value"], y_pred, n_params=2
+        )
         rmse_exp = np.sqrt(np.mean((group_data["Value"] - y_pred) ** 2))
         mae_exp = np.mean(np.abs(group_data["Value"] - y_pred))
         plt.plot(x_line, y_line_exp, color=line_color_exp, label="Exponential")
@@ -326,6 +342,9 @@ with PdfPages(pdf_file) as pdf:
         intercept = results_filtered["intercept"].values[0]
         y_line_lin = slope * x_line + intercept
         y_pred = slope * group_data["Year"] + intercept
+        r2_lin, r2adj_lin = calculate_adjusted_r2(
+            group_data["Value"], y_pred, n_params=2
+        )
         rmse_lin = np.sqrt(np.mean((group_data["Value"] - y_pred) ** 2))
         mae_lin = np.mean(np.abs(group_data["Value"] - y_pred))
         plt.plot(x_line, y_line_lin, color=line_color_lin, label="Linear")
@@ -334,7 +353,15 @@ with PdfPages(pdf_file) as pdf:
 
         # Try table on top:
 
-        column_labels = ["Curve type", "Curve parameters", "Slope", "RMSE", "MAE"]
+        column_labels = [
+            "Curve type",
+            "Curve parameters",
+            "Slope",
+            "R2",
+            "R2adj",
+            "RMSE",
+            "MAE",
+        ]
 
         # Add a table
         table_data = [
@@ -343,6 +370,8 @@ with PdfPages(pdf_file) as pdf:
                 "Logistic",
                 f"""t0={t0:.0f}, Dt={Dt:.3g}, K={k:.3g}""",
                 f"""{np.log(81)/Dt:.3g}""",
+                f"{r2_log:.3g}",
+                f"{r2adj_log:.3g}",
                 f"{rmse_log:.3g}",
                 f"{mae_log:.3g}",
             ],
@@ -350,6 +379,8 @@ with PdfPages(pdf_file) as pdf:
                 "Exponential",
                 f"""{a:.3g}*exp({b:.3g}*(x-{c:.0f}))""",
                 f"""{b:.3g}""",
+                f"{r2_exp:.3g}",
+                f"{r2adj_exp:.3g}",
                 f"{rmse_exp:.3g}",
                 f"{mae_exp:.3g}",
             ],
@@ -357,25 +388,27 @@ with PdfPages(pdf_file) as pdf:
                 "Linear",
                 f"""intercept={intercept:.3g}, slope={slope:.3g}""",
                 f"""{slope:.3g}""",
+                f"{r2_lin:.3g}",
+                f"{r2adj_lin:.3g}",
                 f"{rmse_lin:.3g}",
                 f"{mae_lin:.3g}",
             ],
         ]
-        # table_colors = [
-        #     ["black"] * len(column_labels),
-        #     [line_color_log, line_color_log] + ["black"] * (len(column_labels) - 2),
-        #     [line_color_exp, line_color_exp] + ["black"] * (len(column_labels) - 2),
-        #     [line_color_lin, line_color_lin] + ["black"] * (len(column_labels) - 2),
-        # ]
         table_colors = [
             ["black"] * len(column_labels),
-            [line_color_log] * len(column_labels),
-            [line_color_exp] * len(column_labels),
-            [line_color_lin] * len(column_labels),
+            [line_color_log, line_color_log] + ["black"] * (len(column_labels) - 2),
+            [line_color_exp, line_color_exp] + ["black"] * (len(column_labels) - 2),
+            [line_color_lin, line_color_lin] + ["black"] * (len(column_labels) - 2),
         ]
+        # table_colors = [
+        #     ["black"] * len(column_labels),
+        #     [line_color_log] * len(column_labels),
+        #     [line_color_exp] * len(column_labels),
+        #     [line_color_lin] * len(column_labels),
+        # ]
 
         # Create a table object
-        table = Table(ax, bbox=[0.45, 0.99, 0.54, 0.15])  # Adjust bbox for positioning
+        table = Table(ax, bbox=[0.35, 0.99, 0.64, 0.15])  # Adjust bbox for positioning
         nrows, ncols = len(table_data), len(table_data[0])
 
         for row in range(nrows):
@@ -388,7 +421,7 @@ with PdfPages(pdf_file) as pdf:
                     width=0.1,
                     height=0.1,
                     text=cell_text,
-                    loc="center",
+                    loc="left",
                     facecolor="white",
                     edgecolor="black",
                 )
