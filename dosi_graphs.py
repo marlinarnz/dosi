@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 from matplotlib.table import Table
 from matplotlib.backends.backend_pdf import PdfPages
 
-VERSION = "v7"
+VERSION = "v8"
 
 path = "/mnt/c/Users/simon.destercke/Documents/misc/iiasa/DoSI"
 fn_data = f"{path}/Cleaned_File_Data_Results 5Dec.xlsx"
@@ -34,7 +34,7 @@ adoptions_df.loc[
 ] = "drivers license"
 
 # For debugging: only 2 innovation names
-if False:
+if True:
     adoptions_df = adoptions_df[
         adoptions_df["Innovation Name"].isin(["Quitting smoking", "car sharing"])
     ]
@@ -71,7 +71,7 @@ for key, nested_dict in metadata.items():
             k.lower() if isinstance(k, str) else k: v for k, v in nested_dict.items()
         }
 
-group_vars = list(metadata.keys()) + ["Indicator Name"]
+group_vars = list(metadata.keys())
 
 # Failed attempt below to go for alphabetic ordering of codes
 grouped = adoptions_df.groupby(group_vars)
@@ -90,6 +90,8 @@ for group_name, group_data in grouped:
         )
     )
 sorted_indices = sorted(range(len(codes)), key=lambda i: codes[i])
+
+group_vars.insert(3, "Indicator Name")  # Insert the indicator name after the number
 
 
 def FPLogFit(x, y, threshold=0, thresholdup=0):
@@ -148,7 +150,7 @@ def FPLogFit_with_scaling(x, y, Dt_initial_guess: float = 10, firstrun: bool = T
     """
 
     if len(x) < 3:
-        return {"t0": 2300, "Dt": 2000, "S": 1.0}  # Default parameters
+        return {"t0": 2300, "Dt": 2000, "K": 1.0}  # Default parameters
     else:
         # Initial guesses for the parameters
         initial_guess = [np.median(x), Dt_initial_guess, np.max(y)]
@@ -163,16 +165,16 @@ def FPLogFit_with_scaling(x, y, Dt_initial_guess: float = 10, firstrun: bool = T
                 method="trf",
                 maxfev=2000,
             )
-            t0, Dt, s = params
+            t0, Dt, k = params
         except RuntimeError:
             print("RuntimeError")
-            return {"t0": None, "Dt": None, "S": None}  # Handle fitting failure
+            return {"t0": None, "Dt": None, "K": None}  # Handle fitting failure
         if t0 + Dt < 2000 and firstrun:
             return FPLogFit_with_scaling(
                 x, y, Dt_initial_guess=-5, firstrun=False
             )  # Only one additional attempt
         else:
-            return {"t0": t0, "Dt": Dt, "S": s}
+            return {"t0": t0, "Dt": Dt, "K": k}
 
 
 # Define the exponential function
@@ -280,9 +282,9 @@ with PdfPages(pdf_file) as pdf:
         ]
         t0 = results_filtered["t0"].values[0]
         Dt = results_filtered["Dt"].values[0]
-        s = results_filtered["S"].values[0]
-        y_line_log = FPLogValue_with_scaling(x_line, t0, Dt, s)
-        y_pred = FPLogValue_with_scaling(group_data["Year"], t0, Dt, s)
+        k = results_filtered["K"].values[0]
+        y_line_log = FPLogValue_with_scaling(x_line, t0, Dt, k)
+        y_pred = FPLogValue_with_scaling(group_data["Year"], t0, Dt, k)
         rmse_log = np.sqrt(np.mean((group_data["Value"] - y_pred) ** 2))
         mae_log = np.mean(np.abs(group_data["Value"] - y_pred))
         plt.plot(
@@ -320,39 +322,48 @@ with PdfPages(pdf_file) as pdf:
 
         # Try table on top:
 
-        column_labels = ["Curve type", "Curve parameters", "RMSE", "MAE"]
+        column_labels = ["Curve type", "Curve parameters", "Slope", "RMSE", "MAE"]
 
         # Add a table
         table_data = [
             column_labels,
             [
                 "Logistic",
-                f"""t0={t0:.0f}, Dt={Dt:.3g}, S={s:.3g}""",
+                f"""t0={t0:.0f}, Dt={Dt:.3g}, K={k:.3g}""",
+                f"""{np.log(81)/Dt:.3g}""",
                 f"{rmse_log:.3g}",
                 f"{mae_log:.3g}",
             ],
             [
                 "Exponential",
                 f"""{a:.3g}*exp({b:.3g}*(x-{c:.0f}))""",
+                f"""{b:.3g}""",
                 f"{rmse_exp:.3g}",
                 f"{mae_exp:.3g}",
             ],
             [
                 "Linear",
-                f"""slope={slope:.3g}, intercept={intercept:.3g}""",
+                f"""intercept={intercept:.3g}, slope={slope:.3g}""",
+                f"""{slope:.3g}""",
                 f"{rmse_lin:.3g}",
                 f"{mae_lin:.3g}",
             ],
         ]
+        # table_colors = [
+        #     ["black"] * len(column_labels),
+        #     [line_color_log, line_color_log] + ["black"] * (len(column_labels) - 2),
+        #     [line_color_exp, line_color_exp] + ["black"] * (len(column_labels) - 2),
+        #     [line_color_lin, line_color_lin] + ["black"] * (len(column_labels) - 2),
+        # ]
         table_colors = [
-            ["black"] * 4,
-            [line_color_log, line_color_log, "black", "black"],
-            [line_color_exp, line_color_exp, "black", "black"],
-            [line_color_lin, line_color_lin, "black", "black"],
+            ["black"] * len(column_labels),
+            [line_color_log] * len(column_labels),
+            [line_color_exp] * len(column_labels),
+            [line_color_lin] * len(column_labels),
         ]
 
         # Create a table object
-        table = Table(ax, bbox=[0.5, 0.75, 0.4, 0.15])  # Adjust bbox for positioning
+        table = Table(ax, bbox=[0.45, 0.99, 0.54, 0.15])  # Adjust bbox for positioning
         nrows, ncols = len(table_data), len(table_data[0])
 
         for row in range(nrows):
@@ -384,7 +395,10 @@ with PdfPages(pdf_file) as pdf:
         # Find the maximum y-value
         max_y_lines = max(max(line.get_ydata()) for line in lines)
 
-        plt.title("\n".join(list(group_name) + [code]))
+        title_list = list(group_name)
+        title_list[2:4] = [title_list[2] + " " + title_list[3]]
+
+        plt.title("\n".join(title_list + [code]), loc="left")
         plt.xlabel("Year")
         plt.ylabel("Value")
         plt.ylim(bottom=0, top=min(max(group_data["Value"]) * 2, max_y_lines))
