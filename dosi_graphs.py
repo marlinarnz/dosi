@@ -434,6 +434,7 @@ with PdfPages(plots_pdf_fn) as pdf:
                     edgecolor="black",
                 )
                 cell.set_facecolor("#ffffff")
+                cell.set_fontsize(8)
                 cell.set_alpha(1.0)
                 cell.set_text_props(color=cell_color)  # Set text color for the cell
         table.auto_set_column_width(col=list(range(len(column_labels))))
@@ -448,10 +449,21 @@ with PdfPages(plots_pdf_fn) as pdf:
         # Find the maximum y-value
         max_y_lines = max(max(line.get_ydata()) for line in lines)
 
+        # Plot the code/label in the graph, top left
+        plt.text(
+            x=0.01,  # Position on the x-axis (leftmost)
+            y=0.99,  # Position on the y-axis (topmost, adjust as needed)
+            s=code,  # Text to display
+            transform=plt.gca().transAxes,
+            fontsize=20,
+            verticalalignment="top",  # Align text vertically to the top
+            horizontalalignment="left",  # Align text horizontally to the left
+        )
+
         title_list = list(group_name)
         title_list[2:4] = [title_list[2] + " " + title_list[3]]
 
-        plt.title("\n".join(title_list + [code]), loc="left")
+        plt.title("\n".join(title_list), loc="left")
         plt.xlabel("Year")
         plt.ylabel(group_name[-1])
         plt.ylim(bottom=0, top=min(max(group_data["Value"]) * 2, max_y_lines))
