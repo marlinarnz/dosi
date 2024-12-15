@@ -10,6 +10,7 @@
 
 import pandas as pd
 import numpy as np
+
 import re
 from sklearn.linear_model import LinearRegression
 from scipy.optimize import curve_fit
@@ -19,7 +20,7 @@ from matplotlib.table import Table
 from matplotlib.backends.backend_pdf import PdfPages
 
 VERSION = "v10"
-SMALL_SUBSET = True  # Do you only want a small subset for testing?
+SMALL_SUBSET = False  # Do you only want a small subset for testing?
 
 path = "/mnt/c/Users/simon.destercke/Documents/misc/iiasa/DoSI"
 fn_data = f"{path}/Merged_Cleaned_Pitchbook_WebOfScience_Data.xlsx"
@@ -55,7 +56,15 @@ def read_metadata_table(fn, columns):
     return df.set_index(df.columns[0])[df.columns[1]].to_dict()
 
 
-categories = read_metadata_table(fn_metadata, "A,B")
+categories_df = (
+    pd.read_excel(fn_metadata, usecols="A,B", dtype=str).dropna().reset_index(drop=True)
+)
+categories = {
+    (k.lower() if isinstance(k, str) else k): v
+    for k, v in categories_df.set_index(categories_df.columns[0])[
+        categories_df.columns[1]
+    ].items()
+}
 
 metadata = dict()
 metadata["Innovation Name"] = read_metadata_table(fn_metadata, "A,D")
@@ -76,6 +85,7 @@ metadata["Metric"] = {
     val: f"m{idx}"
     for idx, val in enumerate(sorted(adoptions_df["Metric"].unique()), start=1)
 }
+
 
 for key, nested_dict in metadata.items():
     if isinstance(nested_dict, dict):  # Ensure the value is a dictionary
@@ -239,6 +249,8 @@ def apply_linear_fit(group_df):
 
 # Calculate R^2 and adjusted R^2
 def calculate_adjusted_r2(y_obs, y_pred, n_params):
+    if np.any(np.isnan(y_pred)):  # If predictions are NaN, return NaN
+        return np.nan, np.nan
     ss_res = np.sum((y_obs - y_pred) ** 2)
     ss_tot = np.sum((y_obs - np.mean(y_obs)) ** 2)
     r2 = 1 - (ss_res / ss_tot)
@@ -268,9 +280,13 @@ print(
 
 line_x_buffer = 10
 
+summary_table_rows = (
+    []
+)  # list to which to append the summary statistics for each series
+
 # Initialize PDF
-pdf_file = f"{path}/scatterplots_{VERSION}.pdf"
-with PdfPages(pdf_file) as pdf:
+plots_pdf_fn = f"{path}/scatterplots_{VERSION}.pdf"
+with PdfPages(plots_pdf_fn) as pdf:
     # # Group the data
     grouped = adoptions_df.groupby(group_vars)
 
@@ -445,7 +461,7 @@ with PdfPages(pdf_file) as pdf:
 
         plt.title("\n".join(title_list + [code]), loc="left")
         plt.xlabel("Year")
-        plt.ylabel("Value")
+        plt.ylabel(group_name[-1])
         plt.ylim(bottom=0, top=min(max(group_data["Value"]) * 2, max_y_lines))
         plt.grid(True)
 
@@ -453,4 +469,51 @@ with PdfPages(pdf_file) as pdf:
         pdf.savefig()  # Save current figure into the PDF
         plt.close()  # Close the figure to free memory
 
-print(f"Scatterplots saved to {pdf_file}")
+        # Create the row for the summary table
+
+        summary_table_rows.append(
+            {
+                "Code": code,
+                **{
+                    f"{value}": group_name[i] for i, value in enumerate(group_vars)
+                },  # Dynamically add group_vars
+                "Category": categories[
+                    group_name[0].lower()
+                ],  # Lookup category dynamically
+                "slope_log": np.log(81) / Dt,
+                "slope_exp": b,
+                "slope_lin": slope,
+                "log_t0": t0,
+                "log_Dt": Dt,
+                "log_K": k,
+                "exp_a": a,
+                "exp_c": c,
+                "lin_intercept": intercept,
+                "log_r2": r2_log,
+                "log_r2adj": r2adj_log,
+                "log_rmse": rmse_log,
+                "log_mae": mae_log,
+                "exp_r2": r2_exp,
+                "exp_r2adj": r2adj_exp,
+                "exp_rmse": rmse_exp,
+                "exp_mae": mae_exp,
+                "lin_r2": r2_lin,
+                "lin_r2adj": r2adj_lin,
+                "lin_rmse": rmse_lin,
+                "lin_mae": mae_lin,
+            }
+        )
+
+summary_df = pd.DataFrame(summary_table_rows)
+index_of_first_numeric_column = (
+    len(group_vars) + 2
+)  # DEPENDS ON THE DICTIONARY! IF e.g. ORDER CHANGES, THEN CHANGE THIS!
+summary_df.iloc[:, index_of_first_numeric_column:] = summary_df.iloc[
+    :, index_of_first_numeric_column:
+].astype(float)
+
+summary_df.to_csv(
+    f"""{path}/summary_table_{VERSION}.csv""", float_format="%.5g", index=False
+)
+
+print(f"Scatterplots saved to {plots_pdf_fn}")
