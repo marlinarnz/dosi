@@ -1,13 +1,5 @@
 # File begun on 26 November 2024
 
-# Task: Could you script the first data analysis task? This could be done already on the attached.
-# - plot each data series as a standard line graph (metric on y-axis, time on x-axis; graph title with innovation name + indicator number) [*1]
-# - fit logistic, exponential, linear models to data series (and superimpose plots on data series graph)
-# - report model parameters & fit statistics in inset box on graph [**2]
-
-# [*1] we’ll come up with a short label as a unique identifier of each time series using meta data: innovation name, indicator number + name + description, metric,
-# [**2] some of these fits will be junk; combination of visual check + fit statistics (e.g. R2) will help us select best function
-
 import pandas as pd
 import numpy as np
 
@@ -20,7 +12,7 @@ from matplotlib.table import Table
 from matplotlib.backends.backend_pdf import PdfPages
 
 VERSION = "v10"
-SMALL_SUBSET = False  # Do you only want a small subset for testing?
+SMALL_SUBSET = True  # Do you only want a small subset for testing?
 
 path = "/mnt/c/Users/simon.destercke/Documents/misc/iiasa/DoSI"
 fn_data = f"{path}/Merged_Cleaned_Pitchbook_WebOfScience_Data.xlsx"
@@ -504,6 +496,8 @@ with PdfPages(plots_pdf_fn) as pdf:
             }
         )
 
+print(f"Scatterplots saved to {plots_pdf_fn}")
+
 summary_df = pd.DataFrame(summary_table_rows)
 index_of_first_numeric_column = (
     len(group_vars) + 2
@@ -516,4 +510,25 @@ summary_df.to_csv(
     f"""{path}/summary_table_{VERSION}.csv""", float_format="%.5g", index=False
 )
 
-print(f"Scatterplots saved to {plots_pdf_fn}")
+summary_df["Category_letters"] = summary_df["Category"].str.extract(r"^([A-Za-z]+)")
+
+# Create summary plot
+summary_plot_pdf_fn = f"{path}/summary_plot_{VERSION}.pdf"
+with PdfPages(summary_plot_pdf_fn) as pdf:
+
+    # Group data by letters
+    summary_grouped = summary_df.groupby("Category_letters")["slope_log"]
+
+    # Prepare data for box plot
+    boxplot_data = [group.dropna().values for _, group in summary_grouped]
+
+    # Create the box plot
+    plt.figure(figsize=(8, 6))
+    plt.boxplot(boxplot_data, labels=summary_grouped.groups.keys())
+
+    # Customize the plot
+    plt.title("Logistic slope parameter b by category")
+    plt.xlabel("Category")
+    plt.ylabel("b")
+    pdf.savefig()
+    plt.close()
