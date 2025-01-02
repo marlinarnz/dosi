@@ -11,8 +11,8 @@ import matplotlib.pyplot as plt
 from matplotlib.table import Table
 from matplotlib.backends.backend_pdf import PdfPages
 
-VERSION = "v10"
-SMALL_SUBSET = True  # Do you only want a small subset for testing?
+VERSION = "v11"
+SMALL_SUBSET = False  # Do you only want a small subset for testing?
 
 path = "/mnt/c/Users/simon.destercke/Documents/misc/iiasa/DoSI"
 fn_data = f"{path}/Merged_Cleaned_Pitchbook_WebOfScience_Data.xlsx"
@@ -466,7 +466,13 @@ with PdfPages(plots_pdf_fn) as pdf:
         plt.title("\n".join(title_list), loc="left")
         plt.xlabel("Year")
         plt.ylabel(group_name[-1])
-        plt.ylim(bottom=0, top=min(max(group_data["Value"]) * 2, max_y_lines))
+        plt.ylim(
+            bottom=0,
+            top=max(
+                max(group_data["Value"]) * 1.1,
+                min(max(group_data["Value"]) * 2, max_y_lines),
+            ),
+        )
         plt.grid(True)
 
         # Save the current plot to the PDF
