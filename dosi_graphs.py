@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 from matplotlib.table import Table
 from matplotlib.backends.backend_pdf import PdfPages
 
-VERSION = "v11"
+VERSION = "v12"
 SMALL_SUBSET = False  # Do you only want a small subset for testing?
 
 path = "/mnt/c/Users/simon.destercke/Documents/misc/iiasa/DoSI"
@@ -249,6 +249,22 @@ def calculate_adjusted_r2(y_obs, y_pred, n_params):
     n = len(y_obs)
     r2_adj = 1 - ((1 - r2) * (n - 1) / (n - n_params - 1))
     return r2, r2_adj
+
+
+def exclude_rule_drop_at_end(data_series, drop_threshold_pct=0.9):
+    """Identify years to be excluded because of a drop below 90% of maximum
+
+    Parameters
+    ----------
+    data_series : data frame
+        input data frame
+    drop_threshold_pct: float
+        percentage of maximum value to decide which trailing points to exclude
+    """
+
+    data_series_max = max(data_series["Value"])
+    data_series.sort_values(by="Year")
+    list_of_exclusions = [True] * len(data_series)
 
 
 results_logistic = (
@@ -490,6 +506,8 @@ with PdfPages(plots_pdf_fn) as pdf:
                 "Category": categories[
                     group_name[0].lower()
                 ],  # Lookup category dynamically
+                "n_data_points": len(group_data),
+                "n_non_zero_data_points": (group_data["Value"] != 0).sum(),
                 "slope_log": np.log(81) / Dt,
                 "slope_exp": b,
                 "slope_lin": slope,
@@ -518,7 +536,7 @@ print(f"Scatterplots saved to {plots_pdf_fn}")
 
 summary_df = pd.DataFrame(summary_table_rows)
 index_of_first_numeric_column = (
-    len(group_vars) + 2
+    len(group_vars) + 4
 )  # DEPENDS ON THE DICTIONARY! IF e.g. ORDER CHANGES, THEN CHANGE THIS!
 summary_df.iloc[:, index_of_first_numeric_column:] = summary_df.iloc[
     :, index_of_first_numeric_column:
