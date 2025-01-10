@@ -11,8 +11,8 @@ import matplotlib.pyplot as plt
 from matplotlib.table import Table
 from matplotlib.backends.backend_pdf import PdfPages
 
-VERSION = "v14"
-SMALL_SUBSET = False  # Do you only want a small subset for testing?
+VERSION = "v15"
+SMALL_SUBSET = True  # Do you only want a small subset for testing?
 
 path = "/mnt/c/Users/simon.destercke/Documents/misc/iiasa/DoSI"
 fn_data = f"{path}/Merged_Cleaned_Pitchbook_WebOfScience_GoogleTrends_Data_10Jan_corrected_SDS.xlsx"
@@ -34,8 +34,8 @@ adoptions_df["Innovation Name"] = adoptions_df["Innovation Name"].str.rstrip()
 # For debugging: only 2 innovation names
 if SMALL_SUBSET:
     adoptions_df = adoptions_df[
-        # adoptions_df["Innovation Name"].isin(["Quitting smoking", "car sharing"])
-        adoptions_df["Indicator Number"].isin(["3.3", "3.5", "4.1"])
+        adoptions_df["Innovation Name"].isin(["car sharing"])
+        # adoptions_df["Indicator Number"].isin(["3.3", "3.5", "4.1"])
         # adoptions_df["Indicator Number"].isin(["1.1"])
     ]
 
@@ -157,7 +157,7 @@ def FPLogValue_with_scaling(x, t0, Dt, s):
     return s / (1 + np.exp(-np.log(81) * (x - t0) / Dt))
 
 
-def FPLogFit_with_scaling(x, y, Dt_initial_guess: float = 10, firstrun: bool = True):
+def FPLogFit_with_scaling(x, y, Dt_initial_guess: float = 10):
     """
     Fit a logistic function with vertical scaling to the data.
 
@@ -183,18 +183,18 @@ def FPLogFit_with_scaling(x, y, Dt_initial_guess: float = 10, firstrun: bool = T
                 y,
                 p0=initial_guess,
                 method="trf",
-                maxfev=2000,
+                maxfev=5000,
             )
             t0, Dt, k = params
         except RuntimeError:
             print("RuntimeError")
             return {"t0": None, "Dt": None, "K": None}  # Handle fitting failure
-        if t0 + Dt < 2000 and firstrun:
-            return FPLogFit_with_scaling(
-                x, y, Dt_initial_guess=-5, firstrun=False
-            )  # Only one additional attempt
-        else:
-            return {"t0": t0, "Dt": Dt, "K": k}
+        # if t0 + Dt < 2000 and firstrun:
+        #     return FPLogFit_with_scaling(
+        #         x, y, Dt_initial_guess=-5, firstrun=False
+        #     )  # Only one additional attempt
+        # else:
+        return {"t0": t0, "Dt": Dt, "K": k}
 
 
 # Define the exponential function
@@ -204,7 +204,12 @@ def exponential_func(x, a, b, c):
 
 # Apply FPLogfit to each group
 def apply_FPLogFit_with_scaling(group):
-    result = FPLogFit_with_scaling(group["Year"], group["Value"])
+    slope, _, _, _, _ = linregress(group["Year"].values, group["Value"].values)
+    result = FPLogFit_with_scaling(
+        group["Year"],
+        group["Value"],
+        Dt_initial_guess=np.log(81) / slope * max(group["Value"]),
+    )
     return pd.Series(result)
 
 
