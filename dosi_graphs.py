@@ -11,11 +11,11 @@ import matplotlib.pyplot as plt
 from matplotlib.table import Table
 from matplotlib.backends.backend_pdf import PdfPages
 
-VERSION = "v13"
+VERSION = "v14"
 SMALL_SUBSET = False  # Do you only want a small subset for testing?
 
 path = "/mnt/c/Users/simon.destercke/Documents/misc/iiasa/DoSI"
-fn_data = f"{path}/Merged_Cleaned_Pitchbook_WebOfScience_Data.xlsx"
+fn_data = f"{path}/Merged_Cleaned_Pitchbook_WebOfScience_GoogleTrends_Data_10Jan_corrected_SDS.xlsx"
 
 adoptions_df = pd.read_excel(
     fn_data, sheet_name="Sheet1", converters={"Indicator Number": str}
@@ -23,19 +23,25 @@ adoptions_df = pd.read_excel(
 adoptions_df["Value"] = pd.to_numeric(adoptions_df["Value"], errors="coerce")
 adoptions_df = adoptions_df.dropna(subset=["Value"])
 
-adoptions_df.loc[
-    adoptions_df["Innovation Name"] == "drivers licence", "Innovation Name"
-] = "drivers license"
+# Correct for trailing spaces in the data
+adoptions_df["Spatial Scale"] = adoptions_df["Spatial Scale"].str.rstrip()
+adoptions_df["Innovation Name"] = adoptions_df["Innovation Name"].str.rstrip()
+
+# adoptions_df.loc[
+#     adoptions_df["Innovation Name"] == "drivers licence", "Innovation Name"
+# ] = "drivers license"
 
 # For debugging: only 2 innovation names
 if SMALL_SUBSET:
     adoptions_df = adoptions_df[
-        adoptions_df["Innovation Name"].isin(["Quitting smoking", "car sharing"])
+        # adoptions_df["Innovation Name"].isin(["Quitting smoking", "car sharing"])
+        adoptions_df["Indicator Number"].isin(["3.3", "3.5", "4.1"])
+        # adoptions_df["Indicator Number"].isin(["1.1"])
     ]
 
 print(adoptions_df)
 
-fn_metadata = f"{path}/metadata labels 5Dec_SDS.xlsx"
+fn_metadata = f"{path}/metadata labels 5Dec_SDS_update20250110.xlsx"
 
 
 def convert_to_three_digit_notation(s):
@@ -298,7 +304,7 @@ summary_table_rows = (
 # Initialize PDF
 plots_pdf_fn = f"{path}/scatterplots_{VERSION}.pdf"
 with PdfPages(plots_pdf_fn) as pdf:
-    # # Group the data
+    # Group the data
     grouped = adoptions_df.groupby(group_vars)
 
     # Loop through each group and create a scatterplot
@@ -312,6 +318,8 @@ with PdfPages(plots_pdf_fn) as pdf:
 
         group_data.sort_values(by=["Year"], inplace=True)
 
+        group_data.reset_index(drop=True, inplace=True)
+
         # Get some key values for diagnostics of the series
         n_data_points = len(group_data)
         non_zero_data_index_boolean = group_data["Value"] != 0
@@ -322,6 +330,10 @@ with PdfPages(plots_pdf_fn) as pdf:
         n_non_zero_data_points = len(non_zero_data_points)
         first_year_non_zero = group_data[non_zero_data_index_boolean]["Year"].min()
         last_year_non_zero = group_data[non_zero_data_index_boolean]["Year"].max()
+
+        if n_non_zero_data_points == 0:
+            continue
+
         trimmed_data_points = group_data["Value"][
             min(non_zero_data_index_list) : (max(non_zero_data_index_list) + 1)
         ]
@@ -570,7 +582,7 @@ with PdfPages(plots_pdf_fn) as pdf:
                 "max_over_K": max_value / k,
                 "min_over_K": min_value_non_zero / k,
                 "range_over_k": (max_value - min_value_non_zero) / k,
-                "length_trimmed_series_years": last_year_non_zero - first_year_non_zero,
+                "length_trimmed_series_years": year_range,
                 "n_data_points_beyond_max": n_data_points_beyond_max,
                 "n_data_points_beyond_min": n_data_points_beyond_min,
                 "suspected_reversal_up2down": int(
