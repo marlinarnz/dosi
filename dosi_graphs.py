@@ -12,7 +12,7 @@ from matplotlib.table import Table
 from matplotlib.backends.backend_pdf import PdfPages
 
 VERSION = "v15"
-SMALL_SUBSET = True  # Do you only want a small subset for testing?
+SMALL_SUBSET = False  # Do you only want a small subset for testing?
 
 path = "/mnt/c/Users/simon.destercke/Documents/misc/iiasa/DoSI"
 fn_data = f"{path}/Merged_Cleaned_Pitchbook_WebOfScience_GoogleTrends_Data_10Jan_corrected_SDS.xlsx"
@@ -208,7 +208,11 @@ def apply_FPLogFit_with_scaling(group):
     result = FPLogFit_with_scaling(
         group["Year"],
         group["Value"],
-        Dt_initial_guess=np.log(81) / slope * max(group["Value"]),
+        Dt_initial_guess=(
+            np.log(81) / slope * (max(group["Value"]) if max(group["Value"]) > 0 else 1)
+            if slope != 0
+            else 100
+        ),
     )
     return pd.Series(result)
 
@@ -614,17 +618,25 @@ with PdfPages(plots_pdf_fn) as pdf:
                     "y" if n_non_zero_data_points / n_data_points < 0.1 else "m"
                 ),
                 "C4_jumps": (
-                    "y"
-                    if (len(relative_changes) > 0)
-                    & (max((relative_changes[int(len(relative_changes) / 2) :])) < 2)
-                    & (min((relative_changes[int(len(relative_changes) / 2) :])) > 0.5)
-                    else "m"
+                    "m"
+                    if (len(relative_changes) < 1)
+                    else (
+                        "y"
+                        if (
+                            max((relative_changes[int(len(relative_changes) / 2) :]))
+                            < 2
+                        )
+                        & (
+                            min((relative_changes[int(len(relative_changes) / 2) :]))
+                            > 0.5
+                        )
+                        else "m"
+                    )
                 ),
                 f"C5_volatility_autocorrelation_lag1_threshold_{AUTOCORRELATION_THRESHOLD:.2g}": (
-                    "y"
-                    if (len(relative_changes) > 0)
-                    & (autocorr[1] < AUTOCORRELATION_THRESHOLD)
-                    else "m"
+                    "m"
+                    if (len(relative_changes) < 1)
+                    else ("y" if autocorr[1] < AUTOCORRELATION_THRESHOLD else "m")
                 ),
                 "C_6": "y" if (max_value - min_value_non_zero) / k > 0.25 else "m",
                 "C7_lin_r2": "y" if r2_lin > 0.4 else "m",
