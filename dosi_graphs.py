@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 from matplotlib.table import Table
 from matplotlib.backends.backend_pdf import PdfPages
 
-VERSION = "v12"
+VERSION = "v13"
 SMALL_SUBSET = False  # Do you only want a small subset for testing?
 
 path = "/mnt/c/Users/simon.destercke/Documents/misc/iiasa/DoSI"
@@ -286,7 +286,10 @@ print(
 
 ## Scatterplots
 
-line_x_buffer = 10
+LINE_X_BUFFER = 10
+
+DISTANCE_TO_MEAN_THRESHOLD = 0.48
+AUTOCORRELATION_THRESHOLD = 0.75
 
 summary_table_rows = (
     []
@@ -301,9 +304,49 @@ with PdfPages(plots_pdf_fn) as pdf:
     # Loop through each group and create a scatterplot
     for i in range(len(grouped)):
 
+        print(i)
+
         sorted_index = sorted_indices[i]
 
         group_name, group_data = list(grouped)[sorted_index]
+
+        group_data.sort_values(by=["Year"], inplace=True)
+
+        # Get some key values for diagnostics of the series
+        n_data_points = len(group_data)
+        non_zero_data_index_boolean = group_data["Value"] != 0
+        non_zero_data_index_list = [
+            j for j, val in enumerate(non_zero_data_index_boolean) if val
+        ]
+        non_zero_data_points = group_data[non_zero_data_index_boolean]
+        n_non_zero_data_points = len(non_zero_data_points)
+        first_year_non_zero = group_data[non_zero_data_index_boolean]["Year"].min()
+        last_year_non_zero = group_data[non_zero_data_index_boolean]["Year"].max()
+        trimmed_data_points = group_data["Value"][
+            min(non_zero_data_index_list) : (max(non_zero_data_index_list) + 1)
+        ]
+        year_range = last_year_non_zero - first_year_non_zero + 1
+        min_value_non_zero = group_data[non_zero_data_index_boolean]["Value"].min()
+        min_non_zero_index = group_data[non_zero_data_index_boolean]["Value"].idxmin()
+        max_value = group_data["Value"].max()
+        max_index = group_data["Value"].idxmax()
+        n_data_points_beyond_min = max(non_zero_data_index_list) - min_non_zero_index
+        n_data_points_beyond_max = max(non_zero_data_index_list) - max_index
+        relative_distance_min_to_avg_year = abs(
+            group_data["Year"][min_non_zero_index]
+            - np.mean([first_year_non_zero, last_year_non_zero])
+        ) / (last_year_non_zero - first_year_non_zero)
+        relative_distance_max_to_avg_year = abs(
+            group_data["Year"][max_index]
+            - np.mean([first_year_non_zero, last_year_non_zero])
+        ) / (last_year_non_zero - first_year_non_zero)
+        relative_changes = np.diff(trimmed_data_points) / trimmed_data_points[:-1]
+        # Compute autocorrelation
+        autocorr = np.correlate(trimmed_data_points, trimmed_data_points, mode="full")
+        # Normalize to get autocorrelation values
+        autocorr = autocorr / autocorr.max()
+        # Extract the autocorrelation for non-negative lags
+        autocorr = autocorr[len(trimmed_data_points) - 1 :]
 
         fig = plt.figure(figsize=(12, 9), constrained_layout=True)
         ax = fig.add_subplot(1, 1, 1)
@@ -316,8 +359,8 @@ with PdfPages(plots_pdf_fn) as pdf:
         )
 
         x_line = np.arange(
-            min(group_data["Year"]) - line_x_buffer,
-            max(group_data["Year"]) + line_x_buffer,
+            min(group_data["Year"]) - LINE_X_BUFFER,
+            max(group_data["Year"]) + LINE_X_BUFFER,
             0.1,
         )
 
@@ -424,12 +467,6 @@ with PdfPages(plots_pdf_fn) as pdf:
             [line_color_exp, line_color_exp] + ["black"] * (len(column_labels) - 2),
             [line_color_lin, line_color_lin] + ["black"] * (len(column_labels) - 2),
         ]
-        # table_colors = [
-        #     ["black"] * len(column_labels),
-        #     [line_color_log] * len(column_labels),
-        #     [line_color_exp] * len(column_labels),
-        #     [line_color_lin] * len(column_labels),
-        # ]
 
         # Create a table object
         table = Table(ax, bbox=[0.35, 0.99, 0.64, 0.15])  # Adjust bbox for positioning
@@ -478,6 +515,7 @@ with PdfPages(plots_pdf_fn) as pdf:
 
         title_list = list(group_name)
         title_list[2:4] = [title_list[2] + " " + title_list[3]]
+        # title_list += ["[" + " ".join(f"{x:.3g}" for x in autocorr[:5]) + "]"]
 
         plt.title("\n".join(title_list), loc="left")
         plt.xlabel("Year")
@@ -506,8 +544,6 @@ with PdfPages(plots_pdf_fn) as pdf:
                 "Category": categories[
                     group_name[0].lower()
                 ],  # Lookup category dynamically
-                "n_data_points": len(group_data),
-                "n_non_zero_data_points": (group_data["Value"] != 0).sum(),
                 "slope_log": np.log(81) / Dt,
                 "slope_exp": b,
                 "slope_lin": slope,
@@ -529,6 +565,32 @@ with PdfPages(plots_pdf_fn) as pdf:
                 "lin_r2adj": r2adj_lin,
                 "lin_rmse": rmse_lin,
                 "lin_mae": mae_lin,
+                "n_data_points": len(group_data),
+                "n_non_zero_data_points": (group_data["Value"] != 0).sum(),
+                "max_over_K": max_value / k,
+                "min_over_K": min_value_non_zero / k,
+                "range_over_k": (max_value - min_value_non_zero) / k,
+                "length_trimmed_series_years": last_year_non_zero - first_year_non_zero,
+                "n_data_points_beyond_max": n_data_points_beyond_max,
+                "n_data_points_beyond_min": n_data_points_beyond_min,
+                "suspected_reversal_up2down": int(
+                    relative_distance_max_to_avg_year < DISTANCE_TO_MEAN_THRESHOLD
+                ),
+                "suspected_reversal_down2up": int(
+                    relative_distance_min_to_avg_year < DISTANCE_TO_MEAN_THRESHOLD
+                ),
+                "at_least_one_big_jump": (
+                    int((max(relative_changes) > 2) | (min(relative_changes) < 0.5))
+                    if len(relative_changes) > 0
+                    else None
+                ),
+                f"volatility_autocorrelation_lag1_threshold_{AUTOCORRELATION_THRESHOLD:.2g}": (
+                    int(autocorr[1] < AUTOCORRELATION_THRESHOLD)
+                    if len(relative_changes) > 0
+                    else None
+                ),
+                "all_values_less_than_or_equal_to_1": int(max_value <= 1),
+                "all_values_less_than_or_equal_to_100": int(max_value <= 100),
             }
         )
 
@@ -536,7 +598,7 @@ print(f"Scatterplots saved to {plots_pdf_fn}")
 
 summary_df = pd.DataFrame(summary_table_rows)
 index_of_first_numeric_column = (
-    len(group_vars) + 4
+    len(group_vars) + 2
 )  # DEPENDS ON THE DICTIONARY! IF e.g. ORDER CHANGES, THEN CHANGE THIS!
 summary_df.iloc[:, index_of_first_numeric_column:] = summary_df.iloc[
     :, index_of_first_numeric_column:
