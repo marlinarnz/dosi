@@ -608,18 +608,13 @@ with PdfPages(plots_pdf_fn) as pdf:
                 ),
                 "all_values_less_than_or_equal_to_1": int(max_value <= 1),
                 "all_values_less_than_or_equal_to_100": int(max_value <= 100),
+                "C1_R2": "y" if r2_log > 0.8 else ("m" if r2_log > 0.4 else "n"),
             }
         )
 
 print(f"Scatterplots saved to {plots_pdf_fn}")
 
 summary_df = pd.DataFrame(summary_table_rows)
-index_of_first_numeric_column = (
-    len(group_vars) + 2
-)  # DEPENDS ON THE DICTIONARY! IF e.g. ORDER CHANGES, THEN CHANGE THIS!
-summary_df.iloc[:, index_of_first_numeric_column:] = summary_df.iloc[
-    :, index_of_first_numeric_column:
-].astype(float)
 
 summary_df.to_csv(
     f"""{path}/summary_table_{VERSION}.csv""", float_format="%.5g", index=False
