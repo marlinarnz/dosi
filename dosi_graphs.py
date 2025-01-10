@@ -300,7 +300,7 @@ print(
 LINE_X_BUFFER = 10
 
 DISTANCE_TO_MEAN_THRESHOLD = 0.48
-AUTOCORRELATION_THRESHOLD = 0.75
+AUTOCORRELATION_THRESHOLD = 0.85
 
 summary_table_rows = (
     []
@@ -601,14 +601,33 @@ with PdfPages(plots_pdf_fn) as pdf:
                     if len(relative_changes) > 0
                     else None
                 ),
-                f"volatility_autocorrelation_lag1_threshold_{AUTOCORRELATION_THRESHOLD:.2g}": (
-                    int(autocorr[1] < AUTOCORRELATION_THRESHOLD)
-                    if len(relative_changes) > 0
-                    else None
-                ),
+                f"autocorr_l1": autocorr[1] if len(relative_changes) > 0 else None,
                 "all_values_less_than_or_equal_to_1": int(max_value <= 1),
                 "all_values_less_than_or_equal_to_100": int(max_value <= 100),
                 "C1_R2": "y" if r2_log > 0.8 else ("m" if r2_log > 0.4 else "n"),
+                "C2_years": (
+                    "y"
+                    if n_non_zero_data_points > 5
+                    else ("m" if year_range > 10 else "n")
+                ),
+                "C3_pct_non_zero": (
+                    "y" if n_non_zero_data_points / n_data_points < 0.1 else "m"
+                ),
+                "C4_jumps": (
+                    "y"
+                    if (len(relative_changes) > 0)
+                    & (max((relative_changes[int(len(relative_changes) / 2) :])) < 2)
+                    & (min((relative_changes[int(len(relative_changes) / 2) :])) > 0.5)
+                    else "m"
+                ),
+                f"C5_volatility_autocorrelation_lag1_threshold_{AUTOCORRELATION_THRESHOLD:.2g}": (
+                    "y"
+                    if (len(relative_changes) > 0)
+                    & (autocorr[1] < AUTOCORRELATION_THRESHOLD)
+                    else "m"
+                ),
+                "C_6": "y" if (max_value - min_value_non_zero) / k > 0.25 else "m",
+                "C7_lin_r2": "y" if r2_lin > 0.4 else "m",
             }
         )
 
