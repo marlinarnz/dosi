@@ -87,15 +87,18 @@ metadata["Metric"] = {
     for idx, val in enumerate(sorted(adoptions_df["Metric"].unique()), start=1)
 }
 # Store all dictionaries
-metadata_new_fn = f"{path}/metadata_{VERSION}"
+metadata_new_fn = f"{path}/metadata_{VERSION}.csv"
 # Write to CSV
 # Write to CSV
 with open(metadata_new_fn, "w", newline="") as csvfile:
     writer = csv.writer(csvfile)
 
-    # Write the header
-    header = [f"{key},code" for key in metadata.keys()]
-    writer.writerow([col for item in header for col in item.split(",")])
+    # Write the header with an empty column between each dictionary
+    header = []
+    for key in metadata.keys():
+        header.extend([key, "code", ""])  # Add an empty column
+    header = header[:-1]  # Remove the last empty column
+    writer.writerow(header)
 
     # Find the maximum number of rows needed
     max_rows = max(len(d) for d in metadata.values())
@@ -106,9 +109,10 @@ with open(metadata_new_fn, "w", newline="") as csvfile:
         for key, sub_dict in metadata.items():
             if i < len(sub_dict):
                 sub_key, sub_value = list(sub_dict.items())[i]
-                row.extend([sub_key, sub_value])
+                row.extend([sub_key, sub_value, ""])  # Add an empty column
             else:
-                row.extend(["", ""])
+                row.extend(["", "", ""])  # Add empty placeholders
+        row = row[:-1]  # Remove the last empty column
         writer.writerow(row)
 
 print(f"Data successfully written to {metadata_new_fn}")
@@ -332,16 +336,14 @@ else:
     results_exponential = pd.read_pickle(f"results_exponential_{VERSION_FOR_FITS}.pkl")
     results_linear = pd.read_pickle(f"results_linear_{VERSION_FOR_FITS}.pkl")
 
-print(results_logistic)
 print(
     f"""{results_logistic["t0"].isnull().sum()} out of {len(results_logistic)} logistic fits failed"""
 )
-print(results_exponential)
 print(
     f"""{results_exponential["a"].isnull().sum()} out of {len(results_exponential)} exponential fits failed"""
 )
 
-## Scatterplots
+# Scatterplots
 
 LINE_X_BUFFER = 10
 
