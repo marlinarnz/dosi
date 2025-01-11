@@ -16,6 +16,7 @@ VERSION = "v16"
 VERSION_FOR_FITS = "v15"
 SMALL_SUBSET = False  # Do you only want a small subset for testing?
 REDO_FITS = False
+RENUMBER_METADATA_CODES = True
 
 path = "/mnt/c/Users/simon.destercke/Documents/misc/iiasa/DoSI"
 fn_data = f"{path}/Merged_Cleaned_Pitchbook_WebOfScience_GoogleTrends_Data_10Jan_corrected_SDS.xlsx"
@@ -44,7 +45,7 @@ if SMALL_SUBSET:
 
 print(adoptions_df)
 
-fn_metadata = f"{path}/metadata labels 5Dec_SDS_update20250110.xlsx"
+fn_metadata = f"{path}/metadata_master.xlsx"
 
 
 def convert_to_three_digit_notation(s):
@@ -77,45 +78,36 @@ metadata["Description"] = read_metadata_table(fn_metadata, "R,S")
 metadata["Metric"] = read_metadata_table(fn_metadata, "V,W")
 
 # If metadata file is not in sync with the data table, remake the description dictionary
-metadata["Description"] = {
-    val: f"d{idx}"
-    for idx, val in enumerate(sorted(adoptions_df["Description"].unique()), start=1)
-}
-# If metadata file is not in sync with the data table, remake the metric dictionary
-metadata["Metric"] = {
-    val: f"m{idx}"
-    for idx, val in enumerate(sorted(adoptions_df["Metric"].unique()), start=1)
-}
-# Store all dictionaries
-metadata_new_fn = f"{path}/metadata_{VERSION}.csv"
-# Write to CSV
-# Write to CSV
-with open(metadata_new_fn, "w", newline="") as csvfile:
-    writer = csv.writer(csvfile)
+if RENUMBER_METADATA_CODES:
+    metadata["Description"] = {
+        val: f"d{idx}"
+        for idx, val in enumerate(sorted(adoptions_df["Description"].unique()), start=1)
+    }
+    # If metadata file is not in sync with the data table, remake the metric dictionary
+    metadata["Metric"] = {
+        val: f"m{idx}"
+        for idx, val in enumerate(sorted(adoptions_df["Metric"].unique()), start=1)
+    }
 
-    # Write the header with an empty column between each dictionary
-    header = []
-    for key in metadata.keys():
-        header.extend([key, "code", ""])  # Add an empty column
-    header = header[:-1]  # Remove the last empty column
-    writer.writerow(header)
+# Store the dictionaries with the number codes
+metadata_new_fn = f"{path}/metadata_numbercodes_{VERSION}.xlsx"
 
-    # Find the maximum number of rows needed
-    max_rows = max(len(d) for d in metadata.values())
+dfs = []
+for key in ["Description", "Metric"]:
+    # Create a DataFrame for the current dictionary
+    df = pd.DataFrame(list(metadata[key].items()), columns=[key, "code"])
+    # Add an empty column
+    df[""] = ""
+    dfs.append(df)
 
-    # Write the rows
-    for i in range(max_rows):
-        row = []
-        for key, sub_dict in metadata.items():
-            if i < len(sub_dict):
-                sub_key, sub_value = list(sub_dict.items())[i]
-                row.extend([sub_key, sub_value, ""])  # Add an empty column
-            else:
-                row.extend(["", "", ""])  # Add empty placeholders
-        row = row[:-1]  # Remove the last empty column
-        writer.writerow(row)
+# Concatenate all DataFrames side-by-side
+final_df = pd.concat(dfs, axis=1)
 
-print(f"Data successfully written to {metadata_new_fn}")
+# Save the result to an Excel file
+final_df.to_excel(metadata_new_fn, index=False)
+
+print(f"Metadata number codes successfully written to {metadata_new_fn}")
+
 
 for key, nested_dict in metadata.items():
     if isinstance(nested_dict, dict):  # Ensure the value is a dictionary
