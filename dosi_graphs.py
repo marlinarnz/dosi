@@ -2,6 +2,7 @@
 
 import pandas as pd
 import numpy as np
+import csv
 
 import re
 from sklearn.linear_model import LinearRegression
@@ -11,8 +12,10 @@ import matplotlib.pyplot as plt
 from matplotlib.table import Table
 from matplotlib.backends.backend_pdf import PdfPages
 
-VERSION = "v15"
+VERSION = "v16"
+VERSION_FOR_FITS = "v15"
 SMALL_SUBSET = False  # Do you only want a small subset for testing?
+REDO_FITS = False
 
 path = "/mnt/c/Users/simon.destercke/Documents/misc/iiasa/DoSI"
 fn_data = f"{path}/Merged_Cleaned_Pitchbook_WebOfScience_GoogleTrends_Data_10Jan_corrected_SDS.xlsx"
@@ -78,12 +81,37 @@ metadata["Description"] = {
     val: f"d{idx}"
     for idx, val in enumerate(sorted(adoptions_df["Description"].unique()), start=1)
 }
-# If metadata file is not in sync with the data table, remake the description dictionary
+# If metadata file is not in sync with the data table, remake the metric dictionary
 metadata["Metric"] = {
     val: f"m{idx}"
     for idx, val in enumerate(sorted(adoptions_df["Metric"].unique()), start=1)
 }
+# Store all dictionaries
+metadata_new_fn = f"{path}/metadata_{VERSION}"
+# Write to CSV
+# Write to CSV
+with open(metadata_new_fn, "w", newline="") as csvfile:
+    writer = csv.writer(csvfile)
 
+    # Write the header
+    header = [f"{key},code" for key in metadata.keys()]
+    writer.writerow([col for item in header for col in item.split(",")])
+
+    # Find the maximum number of rows needed
+    max_rows = max(len(d) for d in metadata.values())
+
+    # Write the rows
+    for i in range(max_rows):
+        row = []
+        for key, sub_dict in metadata.items():
+            if i < len(sub_dict):
+                sub_key, sub_value = list(sub_dict.items())[i]
+                row.extend([sub_key, sub_value])
+            else:
+                row.extend(["", ""])
+        writer.writerow(row)
+
+print(f"Data successfully written to {metadata_new_fn}")
 
 for key, nested_dict in metadata.items():
     if isinstance(nested_dict, dict):  # Ensure the value is a dictionary
@@ -282,13 +310,27 @@ def exclude_rule_drop_at_end(data_series, drop_threshold_pct=0.9):
     list_of_exclusions = [True] * len(data_series)
 
 
-results_logistic = (
-    adoptions_df.groupby(group_vars).apply(apply_FPLogFit_with_scaling).reset_index()
-)
-results_exponential = (
-    adoptions_df.groupby(group_vars).apply(apply_exponential_fit).reset_index()
-)
-results_linear = adoptions_df.groupby(group_vars).apply(apply_linear_fit).reset_index()
+if REDO_FITS:
+    results_logistic = (
+        adoptions_df.groupby(group_vars)
+        .apply(apply_FPLogFit_with_scaling)
+        .reset_index()
+    )
+    results_exponential = (
+        adoptions_df.groupby(group_vars).apply(apply_exponential_fit).reset_index()
+    )
+    results_linear = (
+        adoptions_df.groupby(group_vars).apply(apply_linear_fit).reset_index()
+    )
+
+    # Save to Pickle files
+    results_logistic.to_pickle(f"results_logistic_{VERSION}.pkl")
+    results_exponential.to_pickle(f"results_exponential_{VERSION}.pkl")
+    results_linear.to_pickle(f"results_linear_{VERSION}.pkl")
+else:
+    results_logistic = pd.read_pickle(f"results_logistic_{VERSION_FOR_FITS}.pkl")
+    results_exponential = pd.read_pickle(f"results_exponential_{VERSION_FOR_FITS}.pkl")
+    results_linear = pd.read_pickle(f"results_linear_{VERSION_FOR_FITS}.pkl")
 
 print(results_logistic)
 print(
@@ -607,7 +649,9 @@ with PdfPages(plots_pdf_fn) as pdf:
                 ),
                 f"autocorr_l1": autocorr[1] if len(relative_changes) > 0 else None,
                 "all_values_less_than_or_equal_to_1": int(max_value <= 1),
-                "all_values_less_than_or_equal_to_100": int(max_value <= 100),
+                "all_values_less_than_or_equal_to_100": int(
+                    max_value <= 100
+                ),  # CRITERIA_START
                 "C1_R2": "y" if r2_log > 0.8 else ("m" if r2_log > 0.4 else "n"),
                 "C2_years": (
                     "y"
@@ -619,7 +663,9 @@ with PdfPages(plots_pdf_fn) as pdf:
                 ),
                 "C4_jumps": (
                     "m"
-                    if (len(relative_changes) < 1)
+                    if (
+                        len(relative_changes) < 1
+                    )  # Catch series with not enough data points to calculate relative changes
                     else (
                         "y"
                         if (
@@ -635,11 +681,13 @@ with PdfPages(plots_pdf_fn) as pdf:
                 ),
                 f"C5_volatility_autocorrelation_lag1_threshold_{AUTOCORRELATION_THRESHOLD:.2g}": (
                     "m"
-                    if (len(relative_changes) < 1)
+                    if (
+                        len(relative_changes) < 1
+                    )  # Catch series with not enough data points to calculate relative changes
                     else ("y" if autocorr[1] < AUTOCORRELATION_THRESHOLD else "m")
                 ),
                 "C_6": "y" if (max_value - min_value_non_zero) / k > 0.25 else "m",
-                "C7_lin_r2": "y" if r2_lin > 0.4 else "m",
+                "C7_lin_r2": "y" if r2_lin > 0.4 else "m",  # CRITERIA_END
             }
         )
 
@@ -673,3 +721,36 @@ with PdfPages(summary_plot_pdf_fn) as pdf:
     plt.ylabel("b")
     pdf.savefig()
     plt.close()
+
+# Write the criteria to a text file
+source_file = __file__  # Replace with your .py file
+output_file = f"{path}/criteria_as_encoded.txt"
+
+# Define the target function or code section to extract
+start_marker = "CRITERIA_START"  # Adjust to the code section you want to extract
+end_marker = "CRITERIA_END"  # Optional: Define an end marker if needed (e.g., next function/class)
+
+# Initialize variables to capture the section
+in_target_section = False
+extracted_code = []
+
+# Read the source file and extract the target section
+with open(source_file, "r") as file:
+    for line in file:
+        # Detect the start of the target section
+        if start_marker in line:
+            in_target_section = True
+
+        # Capture lines if within the target section
+        if in_target_section:
+            extracted_code.append(line)
+
+        # Detect the end of the target section (optional)
+        if end_marker and end_marker in line:
+            break
+
+# Write the extracted code to a text file
+with open(output_file, "w") as file:
+    file.writelines(extracted_code)
+
+print(f"{path}/Extracted code written to {output_file}")
