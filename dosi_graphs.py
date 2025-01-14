@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 from matplotlib.table import Table
 from matplotlib.backends.backend_pdf import PdfPages
 
-VERSION = "v16"
+VERSION = "v17"
 VERSION_FOR_FITS = "v15"
 SMALL_SUBSET = False  # Do you only want a small subset for testing?
 REDO_FITS = False
@@ -31,11 +31,7 @@ adoptions_df = adoptions_df.dropna(subset=["Value"])
 adoptions_df["Spatial Scale"] = adoptions_df["Spatial Scale"].str.rstrip()
 adoptions_df["Innovation Name"] = adoptions_df["Innovation Name"].str.rstrip()
 
-# adoptions_df.loc[
-#     adoptions_df["Innovation Name"] == "drivers licence", "Innovation Name"
-# ] = "drivers license"
-
-# For debugging: only 2 innovation names
+# For debugging: only subset
 if SMALL_SUBSET:
     adoptions_df = adoptions_df[
         adoptions_df["Innovation Name"].isin(["car sharing"])
@@ -136,6 +132,25 @@ for group_name, group_data in grouped:
 sorted_indices = sorted(range(len(codes)), key=lambda i: codes[i])
 
 group_vars.insert(3, "Indicator Name")  # Insert the indicator name after the number
+
+# Group the data
+grouped = adoptions_df.groupby(group_vars)
+grouped_as_list = list(grouped)
+
+
+# Read codes that need to be cumulated
+with open(f"{path}/datasets_to_cumulate.txt", "r") as file:
+    codes_to_cumulate = [line.strip() for line in file]
+# Loop through codes to cumulate
+cumulated_dfs = []
+for code_to_cumulate in codes_to_cumulate:
+    print(code_to_cumulate)
+    try:
+        name_data_to_cumulate, df_to_cumulate = grouped_as_list[
+            sorted_indices[codes.index(code_to_cumulate)]
+        ]
+    except ValueError as e:
+        print(f"Code {code_to_cumulate} not found!")
 
 
 def FPLogFit(x, y, threshold=0, thresholdup=0):
@@ -339,8 +354,9 @@ print(
 
 LINE_X_BUFFER = 10
 
-DISTANCE_TO_MEAN_THRESHOLD = 0.48
-AUTOCORRELATION_THRESHOLD = 0.85
+DISTANCE_TO_MEAN_THRESHOLD = 0.4
+AUTOCORRELATION_THRESHOLD = 0.8
+K_COVERAGE_THRESHOLD = 0.2
 
 summary_table_rows = (
     []
@@ -349,8 +365,6 @@ summary_table_rows = (
 # Initialize PDF
 plots_pdf_fn = f"{path}/scatterplots_{VERSION}.pdf"
 with PdfPages(plots_pdf_fn) as pdf:
-    # Group the data
-    grouped = adoptions_df.groupby(group_vars)
 
     # Loop through each group and create a scatterplot
     for i in range(len(grouped)):
@@ -359,7 +373,7 @@ with PdfPages(plots_pdf_fn) as pdf:
 
         sorted_index = sorted_indices[i]
 
-        group_name, group_data = list(grouped)[sorted_index]
+        group_name, group_data = grouped_as_list[sorted_index]
 
         group_data.sort_values(by=["Year"], inplace=True)
 
@@ -592,98 +606,112 @@ with PdfPages(plots_pdf_fn) as pdf:
 
         # Create the row for the summary table
 
-        summary_table_rows.append(
-            {
-                "Code": code,
-                **{
-                    f"{value}": group_name[i] for i, value in enumerate(group_vars)
-                },  # Dynamically add group_vars
-                "Category": categories[
-                    group_name[0].lower()
-                ],  # Lookup category dynamically
-                "slope_log": np.log(81) / Dt,
-                "slope_exp": b,
-                "slope_lin": slope,
-                "log_t0": t0,
-                "log_Dt": Dt,
-                "log_K": k,
-                "exp_a": a,
-                "exp_c": c,
-                "lin_intercept": intercept,
-                "log_r2": r2_log,
-                "log_r2adj": r2adj_log,
-                "log_rmse": rmse_log,
-                "log_mae": mae_log,
-                "exp_r2": r2_exp,
-                "exp_r2adj": r2adj_exp,
-                "exp_rmse": rmse_exp,
-                "exp_mae": mae_exp,
-                "lin_r2": r2_lin,
-                "lin_r2adj": r2adj_lin,
-                "lin_rmse": rmse_lin,
-                "lin_mae": mae_lin,
-                "n_data_points": len(group_data),
-                "n_non_zero_data_points": (group_data["Value"] != 0).sum(),
-                "max_over_K": max_value / k,
-                "min_over_K": min_value_non_zero / k,
-                "range_over_k": (max_value - min_value_non_zero) / k,
-                "length_trimmed_series_years": year_range,
-                "n_data_points_beyond_max": n_data_points_beyond_max,
-                "n_data_points_beyond_min": n_data_points_beyond_min,
-                "suspected_reversal_up2down": int(
-                    relative_distance_max_to_avg_year < DISTANCE_TO_MEAN_THRESHOLD
-                ),
-                "suspected_reversal_down2up": int(
-                    relative_distance_min_to_avg_year < DISTANCE_TO_MEAN_THRESHOLD
-                ),
-                "at_least_one_big_jump": (
-                    int((max(relative_changes) > 2) | (min(relative_changes) < 0.5))
-                    if len(relative_changes) > 0
-                    else None
-                ),
-                f"autocorr_l1": autocorr[1] if len(relative_changes) > 0 else None,
-                "all_values_less_than_or_equal_to_1": int(max_value <= 1),
-                "all_values_less_than_or_equal_to_100": int(
-                    max_value <= 100
-                ),  # CRITERIA_START
-                "C1_R2": "y" if r2_log > 0.8 else ("m" if r2_log > 0.4 else "n"),
-                "C2_years": (
+        summary_table_dict = {
+            "Code": code,
+            **{
+                f"{value}": group_name[i] for i, value in enumerate(group_vars)
+            },  # Dynamically add group_vars
+            "Category": categories[
+                group_name[0].lower()
+            ],  # Lookup category dynamically
+            "slope_log": np.log(81) / Dt,
+            "slope_exp": b,
+            "slope_lin": slope,
+            "log_t0": t0,
+            "log_Dt": Dt,
+            "log_K": k,
+            "exp_a": a,
+            "exp_c": c,
+            "lin_intercept": intercept,
+            "log_r2": r2_log,
+            "log_r2adj": r2adj_log,
+            "log_rmse": rmse_log,
+            "log_mae": mae_log,
+            "exp_r2": r2_exp,
+            "exp_r2adj": r2adj_exp,
+            "exp_rmse": rmse_exp,
+            "exp_mae": mae_exp,
+            "lin_r2": r2_lin,
+            "lin_r2adj": r2adj_lin,
+            "lin_rmse": rmse_lin,
+            "lin_mae": mae_lin,
+            "n_data_points": len(group_data),
+            "n_non_zero_data_points": (group_data["Value"] != 0).sum(),
+            "max_over_K": max_value / k,
+            "min_over_K": min_value_non_zero / k,
+            "range_over_k": (max_value - min_value_non_zero) / k,
+            "length_trimmed_series_years": year_range,
+            "n_data_points_beyond_max": n_data_points_beyond_max,
+            "n_data_points_beyond_min": n_data_points_beyond_min,  # CRITERIA_START
+            "suspected_reversal_up2down": int(
+                relative_distance_max_to_avg_year < DISTANCE_TO_MEAN_THRESHOLD
+            ),
+            "suspected_reversal_down2up": int(
+                relative_distance_min_to_avg_year < DISTANCE_TO_MEAN_THRESHOLD
+            ),
+            "at_least_one_big_jump": (
+                int((max(relative_changes) > 1) | (min(relative_changes) < -0.5))
+                if len(relative_changes) > 0
+                else None
+            ),
+            f"autocorr_l1": autocorr[1] if len(relative_changes) > 0 else None,
+            "all_values_less_than_or_equal_to_1": int(max_value <= 1),
+            "all_values_less_than_or_equal_to_100": int(max_value <= 100),
+            "C1_R2": "y" if r2_log > 0.7 else ("m" if r2_log > 0.3 else "n"),
+            "C2_threshold_non_zero_value_years": (
+                "y" if n_non_zero_data_points > 5 else ("m" if year_range > 10 else "n")
+            ),
+            "C3_pct_non_zero": (
+                "m" if n_non_zero_data_points / n_data_points < 0.1 else "y"
+            ),
+            "C4_jumps_in_second_half": (
+                "m"
+                if (
+                    len(relative_changes) < 1
+                )  # Catch series with not enough data points to calculate relative changes
+                else (
                     "y"
-                    if n_non_zero_data_points > 5
-                    else ("m" if year_range > 10 else "n")
-                ),
-                "C3_pct_non_zero": (
-                    "y" if n_non_zero_data_points / n_data_points < 0.1 else "m"
-                ),
-                "C4_jumps": (
-                    "m"
-                    if (
-                        len(relative_changes) < 1
-                    )  # Catch series with not enough data points to calculate relative changes
-                    else (
-                        "y"
-                        if (
-                            max((relative_changes[int(len(relative_changes) / 2) :]))
-                            < 2
-                        )
-                        & (
-                            min((relative_changes[int(len(relative_changes) / 2) :]))
-                            > 0.5
-                        )
-                        else "m"
-                    )
-                ),
-                f"C5_volatility_autocorrelation_lag1_threshold_{AUTOCORRELATION_THRESHOLD:.2g}": (
-                    "m"
-                    if (
-                        len(relative_changes) < 1
-                    )  # Catch series with not enough data points to calculate relative changes
-                    else ("y" if autocorr[1] < AUTOCORRELATION_THRESHOLD else "m")
-                ),
-                "C_6": "y" if (max_value - min_value_non_zero) / k > 0.25 else "m",
-                "C7_lin_r2": "y" if r2_lin > 0.4 else "m",  # CRITERIA_END
-            }
+                    if (max((relative_changes[int(len(relative_changes) / 2) :])) < 1)
+                    & (min((relative_changes[int(len(relative_changes) / 2) :])) > -0.5)
+                    else "m"
+                )
+            ),
+            f"C5_volatility_autocorrelation_lag1_threshold_{AUTOCORRELATION_THRESHOLD:.2g}": (
+                "m"
+                if (
+                    len(relative_changes) < 1
+                )  # Catch series with not enough data points to calculate relative changes
+                else ("m" if autocorr[1] < AUTOCORRELATION_THRESHOLD else "y")
+            ),
+            "C6_{K_COVERAGE_THRESHOLD}_of_k_covered_by_data": (
+                "y"
+                if (max_value - min_value_non_zero) / k > K_COVERAGE_THRESHOLD
+                else "m"
+            ),
+            "C7_lin_r2": "y" if r2_lin > 0.3 else "m",  # CRITERIA_END
+        }
+
+        criteria_dictionary_short_name = {  # Criteria dictionary short names
+            re.match(r"^(C\d+)", k).group(1): v
+            for k, v in summary_table_dict.items()
+            if re.match(r"^(C\d+)", k)
+        }
+
+        def crit(j):
+            return criteria_dictionary_short_name[f"C{j}"]
+
+        summary_table_dict["use_log"] = (
+            "y"
+            if all([crit(j) == "y" for j in range(1, 7)])
+            else ("n" if any([crit(j) == "n" for j in range(1, 7)]) else "m")
         )
+        summary_table_dict["use_lin"] = (
+            "y"
+            if all([crit(j) == "y" for j in [2, 3, 4, 5, 7]])
+            else ("n" if any([crit(j) == "n" for j in [2, 3, 4]]) else "m")
+        )
+
+        summary_table_rows.append(summary_table_dict)
 
 print(f"Scatterplots saved to {plots_pdf_fn}")
 
@@ -691,6 +719,21 @@ summary_df = pd.DataFrame(summary_table_rows)
 
 summary_df.to_csv(
     f"""{path}/summary_table_{VERSION}.csv""", float_format="%.5g", index=False
+)
+
+# Count the different values
+summary_df_split_of_results = (
+    summary_df.loc[
+        :, summary_df.columns.str.match(r"^C\d+|^suspected_reversal|at_least|use_")
+    ]
+    .apply(lambda col: col.astype(str).value_counts())
+    .fillna(0)
+    .astype(int)
+)
+print(summary_df_split_of_results)
+
+summary_df_split_of_results.to_csv(
+    f"""{path}/summary_table_{VERSION}_counts.csv""", index=True
 )
 
 summary_df["Category_letters"] = summary_df["Category"].str.extract(r"^([A-Za-z]+)")
@@ -718,7 +761,7 @@ with PdfPages(summary_plot_pdf_fn) as pdf:
 
 # Write the criteria to a text file
 source_file = __file__  # Replace with your .py file
-output_file = f"{path}/criteria_as_encoded.txt"
+output_file = f"{path}/criteria_as_encoded_{VERSION}.txt"
 
 # Define the target function or code section to extract
 start_marker = "CRITERIA_START"  # Adjust to the code section you want to extract
