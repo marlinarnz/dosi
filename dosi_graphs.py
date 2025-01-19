@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 from matplotlib.table import Table
 from matplotlib.backends.backend_pdf import PdfPages
 
-VERSION = "v17"
+VERSION = "v18"
 VERSION_FOR_FITS = "v15"
 SMALL_SUBSET = False  # Do you only want a small subset for testing?
 REDO_FITS = False
@@ -355,8 +355,10 @@ print(
 LINE_X_BUFFER = 10
 
 DISTANCE_TO_MEAN_THRESHOLD = 0.4
-AUTOCORRELATION_THRESHOLD = 0.8
+AUTOCORRELATION_THRESHOLD = 0.70
 K_COVERAGE_THRESHOLD = 0.2
+PERCENT_JUMP_THRESHOLD = 250
+PERCENT_FALL_THRESHOLD = 80
 
 summary_table_rows = (
     []
@@ -664,15 +666,49 @@ with PdfPages(plots_pdf_fn) as pdf:
             "C3_pct_non_zero": (
                 "m" if n_non_zero_data_points / n_data_points < 0.1 else "y"
             ),
-            "C4_jumps_in_second_half": (
+            f"C4_less_than_{PERCENT_JUMP_THRESHOLD}_jump_in_second_half": (
                 "m"
                 if (
                     len(relative_changes) < 1
                 )  # Catch series with not enough data points to calculate relative changes
                 else (
                     "y"
-                    if (max((relative_changes[int(len(relative_changes) / 2) :])) < 1)
-                    & (min((relative_changes[int(len(relative_changes) / 2) :])) > -0.5)
+                    if (
+                        max((relative_changes[int(len(relative_changes) / 2) :]))
+                        < PERCENT_JUMP_THRESHOLD / 100
+                    )
+                    else "m"
+                )
+            ),
+            f"C4_less_than_{PERCENT_FALL_THRESHOLD}_fall_in_second_half": (
+                "m"
+                if (
+                    len(relative_changes) < 1
+                )  # Catch series with not enough data points to calculate relative changes
+                else (
+                    "y"
+                    if (
+                        min((relative_changes[int(len(relative_changes) / 2) :]))
+                        > -PERCENT_FALL_THRESHOLD / 100
+                    )
+                    else "m"
+                )
+            ),
+            f"C4_combined_less_than_{PERCENT_FALL_THRESHOLD}_fall_and_{PERCENT_JUMP_THRESHOLD}_jump_in_second_half": (
+                "m"
+                if (
+                    len(relative_changes) < 1
+                )  # Catch series with not enough data points to calculate relative changes
+                else (
+                    "y"
+                    if (
+                        max((relative_changes[int(len(relative_changes) / 2) :]))
+                        < PERCENT_JUMP_THRESHOLD / 100
+                    )
+                    & (
+                        min((relative_changes[int(len(relative_changes) / 2) :]))
+                        > -PERCENT_FALL_THRESHOLD / 100
+                    )
                     else "m"
                 )
             ),
