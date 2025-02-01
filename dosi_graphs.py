@@ -11,14 +11,16 @@ import matplotlib.pyplot as plt
 from matplotlib.table import Table
 from matplotlib.backends.backend_pdf import PdfPages
 
-VERSION = "v19"
+VERSION = "v20"
 VERSION_FOR_FITS = "v15"
-SMALL_SUBSET = False  # Do you only want a small subset for testing?
+VERSION_FOR_METADATA = "v19"
+SMALL_SUBSET = True  # Do you only want a small subset for testing?
 REDO_FITS = False
-RENUMBER_METADATA_CODES = True
+RENUMBER_METADATA_CODES = False
+APPLY_TRANSFORMATIONS_TO_DATA_FILE = True  # Should transformations such as cumulation be applied (True), or not (False)? This is important because otherwise there will be doubles
 
-path = "/mnt/c/Users/simon.destercke/Documents/misc/iiasa/DoSI"
-fn_data = f"{path}/Merged_Cleaned_Pitchbook_WebOfScience_GoogleTrends_Data_10Jan_corrected_SDS.xlsx"
+PATH = "/mnt/c/Users/simon.destercke/Documents/misc/iiasa/DoSI"
+fn_data = f"{PATH}/Merged_Cleaned_Pitchbook_WebOfScience_GoogleTrends_Data_10Jan_corrected_SDS.xlsx"
 
 adoptions_df = pd.read_excel(
     fn_data, sheet_name="Sheet1", converters={"Indicator Number": str}
@@ -40,7 +42,7 @@ if SMALL_SUBSET:
 
 print(adoptions_df)
 
-fn_metadata = f"{path}/metadata_master.xlsx"
+fn_metadata = f"{PATH}/metadata_master_{VERSION_FOR_METADATA}.xlsx"
 
 
 def convert_to_three_digit_notation(s):
@@ -84,8 +86,10 @@ if RENUMBER_METADATA_CODES:
         for idx, val in enumerate(sorted(adoptions_df["Metric"].unique()), start=1)
     }
 
-# Store the dictionaries with the number codes
-metadata_new_fn = f"{path}/metadata_numbercodes_{VERSION}.xlsx"
+_, last_value = next(reversed(metadata["Description"].items()))
+description_counter = int(last_value[1:])  # Presumes a format "d023"
+_, last_value = next(reversed(metadata["Metric"].items()))
+metric_counter = int(last_value[1:])  # Presumes a format "m023"
 
 dfs = []
 for key in ["Description", "Metric"]:
@@ -97,12 +101,6 @@ for key in ["Description", "Metric"]:
 
 # Concatenate all DataFrames side-by-side
 final_df = pd.concat(dfs, axis=1)
-
-# Save the result to an Excel file
-final_df.to_excel(metadata_new_fn, index=False)
-
-print(f"Metadata number codes successfully written to {metadata_new_fn}")
-
 
 for key, nested_dict in metadata.items():
     if isinstance(nested_dict, dict):  # Ensure the value is a dictionary
@@ -138,7 +136,7 @@ grouped_as_list = list(grouped)
 
 
 # Read codes that need to be cumulated
-with open(f"{path}/datasets_to_cumulate.txt", "r") as file:
+with open(f"{PATH}/datasets_to_cumulate.txt", "r") as file:
     codes_to_cumulate = [line.strip() for line in file]
 # Loop through codes to cumulate
 cumulated_dfs = []
@@ -369,8 +367,8 @@ COMMON_DATABASES_INDICATOR_CODES = [
     "4.1",
 ]  # to be written to a separate pdf
 
-pdf_commondb = PdfPages(f"{path}/scatterplots_{VERSION}_COMMON.pdf")
-pdf_other = PdfPages(f"{path}/scatterplots_{VERSION}_OTHER.pdf")
+pdf_commondb = PdfPages(f"{PATH}/scatterplots_{VERSION}_COMMON.pdf")
+pdf_other = PdfPages(f"{PATH}/scatterplots_{VERSION}_OTHER.pdf")
 
 adjusted_dfs = []  # For storing the adjusted data frames
 
@@ -751,32 +749,44 @@ for i in range(len(grouped)):
     # Now write to the new data file
     adjusted_df = group_data
 
-    if (
-        (summary_table_dict["all_values_less_than_or_equal_to_1"] == 0)
-        & (summary_table_dict["all_values_less_than_or_equal_to_100"] == 1)
-        & (
-            bool(
-                re.search(
-                    pattern=r"(?i)percent|(?<!\d)%",
-                    string=group_name[group_vars.index("Metric")],
+    if APPLY_TRANSFORMATIONS_TO_DATA_FILE:
+        if (
+            (summary_table_dict["all_values_less_than_or_equal_to_1"] == 0)
+            & (summary_table_dict["all_values_less_than_or_equal_to_100"] == 1)
+            & (
+                bool(
+                    re.search(
+                        pattern=r"(?i)percent|(?<!\d)%",
+                        string=group_name[group_vars.index("Metric")],
+                    )
                 )
             )
-        )
-    ):  # Condition for 'standardizing'
-        adjusted_df["Value"] = adjusted_df["Value"] / 100
-    elif (group_name[group_vars.index("Indicator Number")] == "3.5") | (
-        (group_name[group_vars.index("Indicator Number")] == "1.1")
-        & (
-            group_name[group_vars.index("Innovation Name")]
-            in ["climate protest", "passive building retrofits"]
-        )
-    ):  # condition for cumulating
-        adjusted_dfs.append(adjusted_df)  # append the unaltered dataset
-        adjusted_df["Value"] = adjusted_df["Value"].cumsum()
-        adjusted_df["Description"] = "cumulative " + adjusted_df["Description"]
-        adjusted_df["Metric"] = "cumulative " + adjusted_df["Metric"]
-    else:
-        pass
+        ):  # Condition for 'standardizing'
+            adjusted_df["Value"] = adjusted_df["Value"] / 100
+        elif (group_name[group_vars.index("Indicator Number")] == "3.5") | (
+            (group_name[group_vars.index("Indicator Number")] == "1.1")
+            & (
+                group_name[group_vars.index("Innovation Name")]
+                in ["climate protest", "passive building retrofits"]
+            )
+        ):  # condition for cumulating
+            adjusted_dfs.append(adjusted_df)  # append the unaltered dataset
+            adjusted_df["Value"] = adjusted_df["Value"].cumsum()
+            description_new = "cumulative " + str(adjusted_df["Description"].unique())
+            adjusted_df["Description"] = description_new
+            metric_new = "cumulative " + str(adjusted_df["Metric"].unique)
+            adjusted_df["Metric"] = metric_new
+            # Now also update dictionaries
+            description_counter += 1
+            metadata["Description"][description_new] = convert_to_three_digit_notation(
+                f"d{description_counter}"
+            )
+            metric_counter += 1
+            metadata["Metric"][metric_new] = convert_to_three_digit_notation(
+                f"m{metric_counter}"
+            )
+        else:
+            pass
 
     adjusted_dfs.append(adjusted_df)
 
@@ -785,14 +795,20 @@ pdf_commondb.close()
 pdf_other.close()
 print(f"Scatterplots version {VERSION} saved to pdf.")
 
+# Store the dictionaries with the number codes
+metadata_new_fn = f"{PATH}/metadata_numbercodes_{VERSION}.xlsx"
+# Save the result to an Excel file
+final_df.to_excel(metadata_new_fn, index=False)
+print(f"Updated metadata number codes successfully written to {metadata_new_fn}")
+
 pd.concat(adjusted_dfs).to_csv(
-    f"""{path}/adjusted_datasets_{VERSION}.csv""", index=False
+    f"""{PATH}/adjusted_datasets_{VERSION}.csv""", index=False
 )
 
 summary_df = pd.DataFrame(summary_table_rows)
 
 summary_df.to_csv(
-    f"""{path}/summary_table_{VERSION}.csv""", float_format="%.5g", index=False
+    f"""{PATH}/summary_table_{VERSION}.csv""", float_format="%.5g", index=False
 )
 
 # Count the different values
@@ -807,13 +823,13 @@ summary_df_split_of_results = (
 print(summary_df_split_of_results)
 
 summary_df_split_of_results.to_csv(
-    f"""{path}/summary_table_{VERSION}_counts.csv""", index=True
+    f"""{PATH}/summary_table_{VERSION}_counts.csv""", index=True
 )
 
 summary_df["Category_letters"] = summary_df["Category"].str.extract(r"^([A-Za-z]+)")
 
 # Create summary plot
-summary_plot_pdf_fn = f"{path}/summary_plot_{VERSION}.pdf"
+summary_plot_pdf_fn = f"{PATH}/summary_plot_{VERSION}.pdf"
 with PdfPages(summary_plot_pdf_fn) as pdf:
 
     # Group data by letters
@@ -835,7 +851,7 @@ with PdfPages(summary_plot_pdf_fn) as pdf:
 
 # Write the criteria to a text file
 source_file = __file__  # Replace with your .py file
-output_file = f"{path}/criteria_as_encoded_{VERSION}.txt"
+output_file = f"{PATH}/criteria_as_encoded_{VERSION}.txt"
 
 # Define the target function or code section to extract
 start_marker = "CRITERIA_START"  # Adjust to the code section you want to extract
@@ -864,4 +880,4 @@ with open(source_file, "r") as file:
 with open(output_file, "w") as file:
     file.writelines(extracted_code)
 
-print(f"{path}/Extracted code written to {output_file}")
+print(f"{PATH}/Extracted code written to {output_file}")
