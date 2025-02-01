@@ -2,7 +2,6 @@
 
 import pandas as pd
 import numpy as np
-import csv
 
 import re
 from sklearn.linear_model import LinearRegression
@@ -12,7 +11,7 @@ import matplotlib.pyplot as plt
 from matplotlib.table import Table
 from matplotlib.backends.backend_pdf import PdfPages
 
-VERSION = "v18"
+VERSION = "v19"
 VERSION_FOR_FITS = "v15"
 SMALL_SUBSET = False  # Do you only want a small subset for testing?
 REDO_FITS = False
@@ -76,12 +75,12 @@ metadata["Metric"] = read_metadata_table(fn_metadata, "V,W")
 # If metadata file is not in sync with the data table, remake the description dictionary
 if RENUMBER_METADATA_CODES:
     metadata["Description"] = {
-        val: f"d{idx}"
+        val: convert_to_three_digit_notation(f"d{idx}")
         for idx, val in enumerate(sorted(adoptions_df["Description"].unique()), start=1)
     }
     # If metadata file is not in sync with the data table, remake the metric dictionary
     metadata["Metric"] = {
-        val: f"m{idx}"
+        val: convert_to_three_digit_notation(f"m{idx}")
         for idx, val in enumerate(sorted(adoptions_df["Metric"].unique()), start=1)
     }
 
@@ -364,392 +363,431 @@ summary_table_rows = (
     []
 )  # list to which to append the summary statistics for each series
 
-# Initialize PDF
-plots_pdf_fn = f"{path}/scatterplots_{VERSION}.pdf"
-with PdfPages(plots_pdf_fn) as pdf:
+COMMON_DATABASES_INDICATOR_CODES = [
+    "3.3",
+    "3.5",
+    "4.1",
+]  # to be written to a separate pdf
 
-    # Loop through each group and create a scatterplot
-    for i in range(len(grouped)):
+pdf_commondb = PdfPages(f"{path}/scatterplots_{VERSION}_COMMON.pdf")
+pdf_other = PdfPages(f"{path}/scatterplots_{VERSION}_OTHER.pdf")
 
-        print(i)
+adjusted_dfs = []  # For storing the adjusted data frames
 
-        sorted_index = sorted_indices[i]
+# Loop through each group and create a scatterplot
+for i in range(len(grouped)):
 
-        group_name, group_data = grouped_as_list[sorted_index]
+    print(i)
 
-        group_data.sort_values(by=["Year"], inplace=True)
+    sorted_index = sorted_indices[i]
 
-        group_data.reset_index(drop=True, inplace=True)
+    group_name, group_data = grouped_as_list[sorted_index]
 
-        # Get some key values for diagnostics of the series
-        n_data_points = len(group_data)
-        non_zero_data_index_boolean = group_data["Value"] != 0
-        non_zero_data_index_list = [
-            j for j, val in enumerate(non_zero_data_index_boolean) if val
-        ]
-        non_zero_data_points = group_data[non_zero_data_index_boolean]
-        n_non_zero_data_points = len(non_zero_data_points)
-        first_year_non_zero = group_data[non_zero_data_index_boolean]["Year"].min()
-        last_year_non_zero = group_data[non_zero_data_index_boolean]["Year"].max()
+    group_data.sort_values(by=["Year"], inplace=True)
 
-        if n_non_zero_data_points == 0:
-            continue
+    group_data.reset_index(drop=True, inplace=True)
 
-        trimmed_data_points = group_data["Value"][
-            min(non_zero_data_index_list) : (max(non_zero_data_index_list) + 1)
-        ]
-        year_range = last_year_non_zero - first_year_non_zero + 1
-        min_value_non_zero = group_data[non_zero_data_index_boolean]["Value"].min()
-        min_non_zero_index = group_data[non_zero_data_index_boolean]["Value"].idxmin()
-        max_value = group_data["Value"].max()
-        max_index = group_data["Value"].idxmax()
-        n_data_points_beyond_min = max(non_zero_data_index_list) - min_non_zero_index
-        n_data_points_beyond_max = max(non_zero_data_index_list) - max_index
-        relative_distance_min_to_avg_year = abs(
-            group_data["Year"][min_non_zero_index]
-            - np.mean([first_year_non_zero, last_year_non_zero])
-        ) / (last_year_non_zero - first_year_non_zero)
-        relative_distance_max_to_avg_year = abs(
-            group_data["Year"][max_index]
-            - np.mean([first_year_non_zero, last_year_non_zero])
-        ) / (last_year_non_zero - first_year_non_zero)
-        relative_changes = np.diff(trimmed_data_points) / trimmed_data_points[:-1]
-        # Compute autocorrelation
-        autocorr = np.correlate(trimmed_data_points, trimmed_data_points, mode="full")
-        # Normalize to get autocorrelation values
-        autocorr = autocorr / autocorr.max()
-        # Extract the autocorrelation for non-negative lags
-        autocorr = autocorr[len(trimmed_data_points) - 1 :]
+    # Get some key values for diagnostics of the series
+    n_data_points = len(group_data)
+    non_zero_data_index_boolean = group_data["Value"] != 0
+    non_zero_data_index_list = [
+        j for j, val in enumerate(non_zero_data_index_boolean) if val
+    ]
+    non_zero_data_points = group_data[non_zero_data_index_boolean]
+    n_non_zero_data_points = len(non_zero_data_points)
+    first_year_non_zero = group_data[non_zero_data_index_boolean]["Year"].min()
+    last_year_non_zero = group_data[non_zero_data_index_boolean]["Year"].max()
 
-        fig = plt.figure(figsize=(12, 9), constrained_layout=True)
-        ax = fig.add_subplot(1, 1, 1)
-        plt.scatter(
-            group_data["Year"],
-            group_data["Value"],
-            label="Data Points",
-            color="black",
-            s=40,
-        )
+    if n_non_zero_data_points == 0:
+        continue
 
-        x_line = np.arange(
-            min(group_data["Year"]) - LINE_X_BUFFER,
-            max(group_data["Year"]) + LINE_X_BUFFER,
-            0.1,
-        )
+    trimmed_data_points = group_data["Value"][
+        min(non_zero_data_index_list) : (max(non_zero_data_index_list) + 1)
+    ]
+    year_range = last_year_non_zero - first_year_non_zero + 1
+    min_value_non_zero = group_data[non_zero_data_index_boolean]["Value"].min()
+    min_non_zero_index = group_data[non_zero_data_index_boolean]["Value"].idxmin()
+    max_value = group_data["Value"].max()
+    max_index = group_data["Value"].idxmax()
+    n_data_points_beyond_min = max(non_zero_data_index_list) - min_non_zero_index
+    n_data_points_beyond_max = max(non_zero_data_index_list) - max_index
+    relative_distance_min_to_avg_year = abs(
+        group_data["Year"][min_non_zero_index]
+        - np.mean([first_year_non_zero, last_year_non_zero])
+    ) / (last_year_non_zero - first_year_non_zero)
+    relative_distance_max_to_avg_year = abs(
+        group_data["Year"][max_index]
+        - np.mean([first_year_non_zero, last_year_non_zero])
+    ) / (last_year_non_zero - first_year_non_zero)
+    relative_changes = np.diff(trimmed_data_points) / trimmed_data_points[:-1]
+    # Compute autocorrelation
+    autocorr = np.correlate(trimmed_data_points, trimmed_data_points, mode="full")
+    # Normalize to get autocorrelation values
+    autocorr = autocorr / autocorr.max()
+    # Extract the autocorrelation for non-negative lags
+    autocorr = autocorr[len(trimmed_data_points) - 1 :]
 
-        # Logistic fit line
-        line_color_log = "blue"
-        results_filtered = results_logistic[
-            results_logistic[group_vars].apply(tuple, axis=1).isin([group_name])
-        ]
-        t0 = results_filtered["t0"].values[0]
-        Dt = results_filtered["Dt"].values[0]
-        k = results_filtered["K"].values[0]
-        y_line_log = FPLogValue_with_scaling(x_line, t0, Dt, k)
-        y_pred = FPLogValue_with_scaling(group_data["Year"], t0, Dt, k)
-        r2_log, r2adj_log = calculate_adjusted_r2(
-            group_data["Value"], y_pred, n_params=3
-        )
-        rmse_log = np.sqrt(np.mean((group_data["Value"] - y_pred) ** 2))
-        mae_log = np.mean(np.abs(group_data["Value"] - y_pred))
-        plt.plot(
-            x_line, y_line_log, color=line_color_log, label="Logistic"
-        )  # , marker="+")
+    fig = plt.figure(figsize=(12, 9), constrained_layout=True)
+    ax = fig.add_subplot(1, 1, 1)
+    plt.scatter(
+        group_data["Year"],
+        group_data["Value"],
+        label="Data Points",
+        color="black",
+        s=40,
+    )
 
-        # Exponential fit line
-        line_color_exp = "red"
-        results_filtered = results_exponential[
-            results_exponential[group_vars].apply(tuple, axis=1).isin([group_name])
-        ]
-        a = results_filtered["a"].values[0]
-        b = results_filtered["b"].values[0]
-        c = results_filtered["c"].values[0]
-        y_line_exp = exponential_func(x_line, a, b, c)
-        y_pred = exponential_func(group_data["Year"], a, b, c)
-        r2_exp, r2adj_exp = calculate_adjusted_r2(
-            group_data["Value"], y_pred, n_params=2
-        )
-        rmse_exp = np.sqrt(np.mean((group_data["Value"] - y_pred) ** 2))
-        mae_exp = np.mean(np.abs(group_data["Value"] - y_pred))
-        plt.plot(x_line, y_line_exp, color=line_color_exp, label="Exponential")
+    x_line = np.arange(
+        min(group_data["Year"]) - LINE_X_BUFFER,
+        max(group_data["Year"]) + LINE_X_BUFFER,
+        0.1,
+    )
 
-        # Linear regression line
-        line_color_lin = "green"
-        results_filtered = results_linear[
-            results_linear[group_vars].apply(tuple, axis=1).isin([group_name])
-        ]
-        slope = results_filtered["slope"].values[0]
-        intercept = results_filtered["intercept"].values[0]
-        y_line_lin = slope * x_line + intercept
-        y_pred = slope * group_data["Year"] + intercept
-        r2_lin, r2adj_lin = calculate_adjusted_r2(
-            group_data["Value"], y_pred, n_params=2
-        )
-        rmse_lin = np.sqrt(np.mean((group_data["Value"] - y_pred) ** 2))
-        mae_lin = np.mean(np.abs(group_data["Value"] - y_pred))
-        plt.plot(x_line, y_line_lin, color=line_color_lin, label="Linear")
+    # Logistic fit line
+    line_color_log = "blue"
+    results_filtered = results_logistic[
+        results_logistic[group_vars].apply(tuple, axis=1).isin([group_name])
+    ]
+    t0 = results_filtered["t0"].values[0]
+    Dt = results_filtered["Dt"].values[0]
+    k = results_filtered["K"].values[0]
+    y_line_log = FPLogValue_with_scaling(x_line, t0, Dt, k)
+    y_pred = FPLogValue_with_scaling(group_data["Year"], t0, Dt, k)
+    r2_log, r2adj_log = calculate_adjusted_r2(group_data["Value"], y_pred, n_params=3)
+    rmse_log = np.sqrt(np.mean((group_data["Value"] - y_pred) ** 2))
+    mae_log = np.mean(np.abs(group_data["Value"] - y_pred))
+    plt.plot(
+        x_line, y_line_log, color=line_color_log, label="Logistic"
+    )  # , marker="+")
 
-        code = codes[sorted_index]
+    # Exponential fit line
+    line_color_exp = "red"
+    results_filtered = results_exponential[
+        results_exponential[group_vars].apply(tuple, axis=1).isin([group_name])
+    ]
+    a = results_filtered["a"].values[0]
+    b = results_filtered["b"].values[0]
+    c = results_filtered["c"].values[0]
+    y_line_exp = exponential_func(x_line, a, b, c)
+    y_pred = exponential_func(group_data["Year"], a, b, c)
+    r2_exp, r2adj_exp = calculate_adjusted_r2(group_data["Value"], y_pred, n_params=2)
+    rmse_exp = np.sqrt(np.mean((group_data["Value"] - y_pred) ** 2))
+    mae_exp = np.mean(np.abs(group_data["Value"] - y_pred))
+    plt.plot(x_line, y_line_exp, color=line_color_exp, label="Exponential")
 
-        # Try table on top:
+    # Linear regression line
+    line_color_lin = "green"
+    results_filtered = results_linear[
+        results_linear[group_vars].apply(tuple, axis=1).isin([group_name])
+    ]
+    slope = results_filtered["slope"].values[0]
+    intercept = results_filtered["intercept"].values[0]
+    y_line_lin = slope * x_line + intercept
+    y_pred = slope * group_data["Year"] + intercept
+    r2_lin, r2adj_lin = calculate_adjusted_r2(group_data["Value"], y_pred, n_params=2)
+    rmse_lin = np.sqrt(np.mean((group_data["Value"] - y_pred) ** 2))
+    mae_lin = np.mean(np.abs(group_data["Value"] - y_pred))
+    plt.plot(x_line, y_line_lin, color=line_color_lin, label="Linear")
 
-        column_labels = [
-            "Curve type",
-            "Curve parameters",
-            "Slope",
-            "R2",
-            "R2adj",
-            "RMSE",
-            "MAE",
-        ]
+    code = codes[sorted_index]
 
-        # Add a table
-        table_data = [
-            column_labels,
-            [
-                "Logistic",
-                f"""t0={t0:.0f}, Dt={Dt:.3g}, K={k:.3g}""",
-                f"""{np.log(81)/Dt:.3g}""",
-                f"{r2_log:.3g}",
-                f"{r2adj_log:.3g}",
-                f"{rmse_log:.3g}",
-                f"{mae_log:.3g}",
-            ],
-            [
-                "Exponential",
-                f"""{a:.3g}*exp({b:.3g}*(x-{c:.0f}))""",
-                f"""{b:.3g}""",
-                f"{r2_exp:.3g}",
-                f"{r2adj_exp:.3g}",
-                f"{rmse_exp:.3g}",
-                f"{mae_exp:.3g}",
-            ],
-            [
-                "Linear",
-                f"""intercept={intercept:.3g}, slope={slope:.3g}""",
-                f"""{slope:.3g}""",
-                f"{r2_lin:.3g}",
-                f"{r2adj_lin:.3g}",
-                f"{rmse_lin:.3g}",
-                f"{mae_lin:.3g}",
-            ],
-        ]
-        table_colors = [
-            ["black"] * len(column_labels),
-            [line_color_log, line_color_log] + ["black"] * (len(column_labels) - 2),
-            [line_color_exp, line_color_exp] + ["black"] * (len(column_labels) - 2),
-            [line_color_lin, line_color_lin] + ["black"] * (len(column_labels) - 2),
-        ]
+    # Try table on top:
 
-        # Create a table object
-        table = Table(ax, bbox=[0.35, 0.99, 0.64, 0.15])  # Adjust bbox for positioning
-        nrows, ncols = len(table_data), len(table_data[0])
+    column_labels = [
+        "Curve type",
+        "Curve parameters",
+        "Slope",
+        "R2",
+        "R2adj",
+        "RMSE",
+        "MAE",
+    ]
 
-        for row in range(nrows):
-            for col in range(ncols):
-                cell_text = table_data[row][col]
-                cell_color = table_colors[row][col]
-                cell = table.add_cell(
-                    row,
-                    col,
-                    width=0.1,
-                    height=0.1,
-                    text=cell_text,
-                    loc="left",
-                    facecolor="white",
-                    edgecolor="black",
-                )
-                cell.set_facecolor("#ffffff")
-                cell.set_fontsize(8)
-                cell.set_alpha(1.0)
-                cell.set_text_props(color=cell_color)  # Set text color for the cell
-        table.auto_set_column_width(col=list(range(len(column_labels))))
+    # Add a table
+    table_data = [
+        column_labels,
+        [
+            "Logistic",
+            f"""t0={t0:.0f}, Dt={Dt:.3g}, K={k:.3g}""",
+            f"""{np.log(81)/Dt:.3g}""",
+            f"{r2_log:.3g}",
+            f"{r2adj_log:.3g}",
+            f"{rmse_log:.3g}",
+            f"{mae_log:.3g}",
+        ],
+        [
+            "Exponential",
+            f"""{a:.3g}*exp({b:.3g}*(x-{c:.0f}))""",
+            f"""{b:.3g}""",
+            f"{r2_exp:.3g}",
+            f"{r2adj_exp:.3g}",
+            f"{rmse_exp:.3g}",
+            f"{mae_exp:.3g}",
+        ],
+        [
+            "Linear",
+            f"""intercept={intercept:.3g}, slope={slope:.3g}""",
+            f"""{slope:.3g}""",
+            f"{r2_lin:.3g}",
+            f"{r2adj_lin:.3g}",
+            f"{rmse_lin:.3g}",
+            f"{mae_lin:.3g}",
+        ],
+    ]
+    table_colors = [
+        ["black"] * len(column_labels),
+        [line_color_log, line_color_log] + ["black"] * (len(column_labels) - 2),
+        [line_color_exp, line_color_exp] + ["black"] * (len(column_labels) - 2),
+        [line_color_lin, line_color_lin] + ["black"] * (len(column_labels) - 2),
+    ]
 
-        # Add the table to the axes
-        ax.add_table(table)
-        table.set_zorder(5)
+    # Create a table object
+    table = Table(ax, bbox=[0.35, 0.99, 0.64, 0.15])  # Adjust bbox for positioning
+    nrows, ncols = len(table_data), len(table_data[0])
 
-        # Find max y for plotting
-        lines = ax.get_lines()
+    for row in range(nrows):
+        for col in range(ncols):
+            cell_text = table_data[row][col]
+            cell_color = table_colors[row][col]
+            cell = table.add_cell(
+                row,
+                col,
+                width=0.1,
+                height=0.1,
+                text=cell_text,
+                loc="left",
+                facecolor="white",
+                edgecolor="black",
+            )
+            cell.set_facecolor("#ffffff")
+            cell.set_fontsize(8)
+            cell.set_alpha(1.0)
+            cell.set_text_props(color=cell_color)  # Set text color for the cell
+    table.auto_set_column_width(col=list(range(len(column_labels))))
 
-        # Find the maximum y-value
-        max_y_lines = max(max(line.get_ydata()) for line in lines)
+    # Add the table to the axes
+    ax.add_table(table)
+    table.set_zorder(5)
 
-        # Plot the code/label in the graph, top left
-        plt.text(
-            x=0.01,  # Position on the x-axis (leftmost)
-            y=0.99,  # Position on the y-axis (topmost, adjust as needed)
-            s=code,  # Text to display
-            transform=plt.gca().transAxes,
-            fontsize=20,
-            verticalalignment="top",  # Align text vertically to the top
-            horizontalalignment="left",  # Align text horizontally to the left
-        )
+    # Find max y for plotting
+    lines = ax.get_lines()
 
-        title_list = list(group_name)
-        title_list[2:4] = [title_list[2] + " " + title_list[3]]
-        # title_list += ["[" + " ".join(f"{x:.3g}" for x in autocorr[:5]) + "]"]
+    # Find the maximum y-value
+    max_y_lines = max(max(line.get_ydata()) for line in lines)
 
-        plt.title("\n".join(title_list), loc="left")
-        plt.xlabel("Year")
-        plt.ylabel(group_name[-1])
-        plt.ylim(
-            bottom=0,
-            top=max(
-                max(group_data["Value"]) * 1.1,
-                min(max(group_data["Value"]) * 2, max_y_lines),
-            ),
-        )
-        plt.grid(True)
+    # Plot the code/label in the graph, top left
+    plt.text(
+        x=0.01,  # Position on the x-axis (leftmost)
+        y=0.99,  # Position on the y-axis (topmost, adjust as needed)
+        s=code,  # Text to display
+        transform=plt.gca().transAxes,
+        fontsize=20,
+        verticalalignment="top",  # Align text vertically to the top
+        horizontalalignment="left",  # Align text horizontally to the left
+    )
 
-        # Save the current plot to the PDF
-        pdf.savefig()  # Save current figure into the PDF
-        plt.close()  # Close the figure to free memory
+    title_list = list(group_name)
+    title_list[2:4] = [title_list[2] + " " + title_list[3]]
+    # title_list += ["[" + " ".join(f"{x:.3g}" for x in autocorr[:5]) + "]"]
 
-        # Create the row for the summary table
+    plt.title("\n".join(title_list), loc="left")
+    plt.xlabel("Year")
+    plt.ylabel(group_name[-1])
+    plt.ylim(
+        bottom=0,
+        top=max(
+            max(group_data["Value"]) * 1.1,
+            min(max(group_data["Value"]) * 2, max_y_lines),
+        ),
+    )
+    plt.grid(True)
 
-        summary_table_dict = {
-            "Code": code,
-            **{
-                f"{value}": group_name[i] for i, value in enumerate(group_vars)
-            },  # Dynamically add group_vars
-            "Category": categories[
-                group_name[0].lower()
-            ],  # Lookup category dynamically
-            "slope_log": np.log(81) / Dt,
-            "slope_exp": b,
-            "slope_lin": slope,
-            "log_t0": t0,
-            "log_Dt": Dt,
-            "log_K": k,
-            "exp_a": a,
-            "exp_c": c,
-            "lin_intercept": intercept,
-            "log_r2": r2_log,
-            "log_r2adj": r2adj_log,
-            "log_rmse": rmse_log,
-            "log_mae": mae_log,
-            "exp_r2": r2_exp,
-            "exp_r2adj": r2adj_exp,
-            "exp_rmse": rmse_exp,
-            "exp_mae": mae_exp,
-            "lin_r2": r2_lin,
-            "lin_r2adj": r2adj_lin,
-            "lin_rmse": rmse_lin,
-            "lin_mae": mae_lin,
-            "n_data_points": len(group_data),
-            "n_non_zero_data_points": (group_data["Value"] != 0).sum(),
-            "max_over_K": max_value / k,
-            "min_over_K": min_value_non_zero / k,
-            "range_over_k": (max_value - min_value_non_zero) / k,
-            "length_trimmed_series_years": year_range,
-            "n_data_points_beyond_max": n_data_points_beyond_max,
-            "n_data_points_beyond_min": n_data_points_beyond_min,  # CRITERIA_START
-            "suspected_reversal_up2down": int(
-                relative_distance_max_to_avg_year < DISTANCE_TO_MEAN_THRESHOLD
-            ),
-            "suspected_reversal_down2up": int(
-                relative_distance_min_to_avg_year < DISTANCE_TO_MEAN_THRESHOLD
-            ),
-            "at_least_one_big_jump": (
-                int((max(relative_changes) > 1) | (min(relative_changes) < -0.5))
-                if len(relative_changes) > 0
-                else None
-            ),
-            f"autocorr_l1": autocorr[1] if len(relative_changes) > 0 else None,
-            "all_values_less_than_or_equal_to_1": int(max_value <= 1),
-            "all_values_less_than_or_equal_to_100": int(max_value <= 100),
-            "C1_R2": "y" if r2_log > 0.7 else ("m" if r2_log > 0.3 else "n"),
-            "C2_threshold_non_zero_value_years": (
-                "y" if n_non_zero_data_points > 5 else ("m" if year_range > 10 else "n")
-            ),
-            "C3_pct_non_zero": (
-                "m" if n_non_zero_data_points / n_data_points < 0.1 else "y"
-            ),
-            f"C4_less_than_{PERCENT_JUMP_THRESHOLD}_jump_in_second_half": (
-                "m"
-                if (
-                    len(relative_changes) < 1
-                )  # Catch series with not enough data points to calculate relative changes
-                else (
-                    "y"
-                    if (
-                        max((relative_changes[int(len(relative_changes) / 2) :]))
-                        < PERCENT_JUMP_THRESHOLD / 100
-                    )
-                    else "m"
-                )
-            ),
-            f"C4_less_than_{PERCENT_FALL_THRESHOLD}_fall_in_second_half": (
-                "m"
-                if (
-                    len(relative_changes) < 1
-                )  # Catch series with not enough data points to calculate relative changes
-                else (
-                    "y"
-                    if (
-                        min((relative_changes[int(len(relative_changes) / 2) :]))
-                        > -PERCENT_FALL_THRESHOLD / 100
-                    )
-                    else "m"
-                )
-            ),
-            f"C4_combined_less_than_{PERCENT_FALL_THRESHOLD}_fall_and_{PERCENT_JUMP_THRESHOLD}_jump_in_second_half": (
-                "m"
-                if (
-                    len(relative_changes) < 1
-                )  # Catch series with not enough data points to calculate relative changes
-                else (
-                    "y"
-                    if (
-                        max((relative_changes[int(len(relative_changes) / 2) :]))
-                        < PERCENT_JUMP_THRESHOLD / 100
-                    )
-                    & (
-                        min((relative_changes[int(len(relative_changes) / 2) :]))
-                        > -PERCENT_FALL_THRESHOLD / 100
-                    )
-                    else "m"
-                )
-            ),
-            f"C5_volatility_autocorrelation_lag1_threshold_{AUTOCORRELATION_THRESHOLD:.2g}": (
-                "m"
-                if (
-                    len(relative_changes) < 1
-                )  # Catch series with not enough data points to calculate relative changes
-                else ("m" if autocorr[1] < AUTOCORRELATION_THRESHOLD else "y")
-            ),
-            "C6_{K_COVERAGE_THRESHOLD}_of_k_covered_by_data": (
+    # Save the current plot to the PDF
+    if group_name[2] in COMMON_DATABASES_INDICATOR_CODES:
+        pdf_commondb.savefig()  # Save current figure into the PDF
+    else:
+        pdf_other.savefig()
+    plt.close()  # Close the figure to free memory
+
+    # Create the row for the summary table
+
+    summary_table_dict = {
+        "Code": code,
+        **{
+            f"{value}": group_name[i] for i, value in enumerate(group_vars)
+        },  # Dynamically add group_vars
+        "Category": categories[group_name[0].lower()],  # Lookup category dynamically
+        "slope_log": np.log(81) / Dt,
+        "slope_exp": b,
+        "slope_lin": slope,
+        "log_t0": t0,
+        "log_Dt": Dt,
+        "log_K": k,
+        "exp_a": a,
+        "exp_c": c,
+        "lin_intercept": intercept,
+        "log_r2": r2_log,
+        "log_r2adj": r2adj_log,
+        "log_rmse": rmse_log,
+        "log_mae": mae_log,
+        "exp_r2": r2_exp,
+        "exp_r2adj": r2adj_exp,
+        "exp_rmse": rmse_exp,
+        "exp_mae": mae_exp,
+        "lin_r2": r2_lin,
+        "lin_r2adj": r2adj_lin,
+        "lin_rmse": rmse_lin,
+        "lin_mae": mae_lin,
+        "n_data_points": len(group_data),
+        "n_non_zero_data_points": (group_data["Value"] != 0).sum(),
+        "max_over_K": max_value / k,
+        "min_over_K": min_value_non_zero / k,
+        "range_over_k": (max_value - min_value_non_zero) / k,
+        "length_trimmed_series_years": year_range,
+        "n_data_points_beyond_max": n_data_points_beyond_max,
+        "n_data_points_beyond_min": n_data_points_beyond_min,  # CRITERIA_START
+        "suspected_reversal_up2down": int(
+            relative_distance_max_to_avg_year < DISTANCE_TO_MEAN_THRESHOLD
+        ),
+        "suspected_reversal_down2up": int(
+            relative_distance_min_to_avg_year < DISTANCE_TO_MEAN_THRESHOLD
+        ),
+        "at_least_one_big_jump": (
+            int((max(relative_changes) > 1) | (min(relative_changes) < -0.5))
+            if len(relative_changes) > 0
+            else None
+        ),
+        f"autocorr_l1": autocorr[1] if len(relative_changes) > 0 else None,
+        "all_values_less_than_or_equal_to_1": int(max_value <= 1),
+        "all_values_less_than_or_equal_to_100": int(max_value <= 100),
+        "C1_R2": "y" if r2_log > 0.7 else ("m" if r2_log > 0.3 else "n"),
+        "C2_threshold_non_zero_value_years": (
+            "y" if n_non_zero_data_points > 5 else ("m" if year_range > 10 else "n")
+        ),
+        "C3_pct_non_zero": (
+            "m" if n_non_zero_data_points / n_data_points < 0.1 else "y"
+        ),
+        f"C4_less_than_{PERCENT_JUMP_THRESHOLD}_jump_in_second_half": (
+            "m"
+            if (
+                len(relative_changes) < 1
+            )  # Catch series with not enough data points to calculate relative changes
+            else (
                 "y"
-                if (max_value - min_value_non_zero) / k > K_COVERAGE_THRESHOLD
+                if (
+                    max((relative_changes[int(len(relative_changes) / 2) :]))
+                    < PERCENT_JUMP_THRESHOLD / 100
+                )
                 else "m"
-            ),
-            "C7_lin_r2": "y" if r2_lin > 0.3 else "m",  # CRITERIA_END
-        }
+            )
+        ),
+        f"C4_less_than_{PERCENT_FALL_THRESHOLD}_fall_in_second_half": (
+            "m"
+            if (
+                len(relative_changes) < 1
+            )  # Catch series with not enough data points to calculate relative changes
+            else (
+                "y"
+                if (
+                    min((relative_changes[int(len(relative_changes) / 2) :]))
+                    > -PERCENT_FALL_THRESHOLD / 100
+                )
+                else "m"
+            )
+        ),
+        f"C4_combined_less_than_{PERCENT_FALL_THRESHOLD}_fall_and_{PERCENT_JUMP_THRESHOLD}_jump_in_second_half": (
+            "m"
+            if (
+                len(relative_changes) < 1
+            )  # Catch series with not enough data points to calculate relative changes
+            else (
+                "y"
+                if (
+                    max((relative_changes[int(len(relative_changes) / 2) :]))
+                    < PERCENT_JUMP_THRESHOLD / 100
+                )
+                & (
+                    min((relative_changes[int(len(relative_changes) / 2) :]))
+                    > -PERCENT_FALL_THRESHOLD / 100
+                )
+                else "m"
+            )
+        ),
+        f"C5_volatility_autocorrelation_lag1_threshold_{AUTOCORRELATION_THRESHOLD:.2g}": (
+            "m"
+            if (
+                len(relative_changes) < 1
+            )  # Catch series with not enough data points to calculate relative changes
+            else ("m" if autocorr[1] < AUTOCORRELATION_THRESHOLD else "y")
+        ),
+        "C6_{K_COVERAGE_THRESHOLD}_of_k_covered_by_data": (
+            "y" if (max_value - min_value_non_zero) / k > K_COVERAGE_THRESHOLD else "m"
+        ),
+        "C7_lin_r2": "y" if r2_lin > 0.3 else "m",  # CRITERIA_END
+    }
 
-        criteria_dictionary_short_name = {  # Criteria dictionary short names
-            re.match(r"^(C\d+)", k).group(1): v
-            for k, v in summary_table_dict.items()
-            if re.match(r"^(C\d+)", k)
-        }
+    criteria_dictionary_short_name = {  # Criteria dictionary short names
+        re.match(r"^(C\d+)", k).group(1): v
+        for k, v in summary_table_dict.items()
+        if re.match(r"^(C\d+)", k)
+    }
 
-        def crit(j):
-            return criteria_dictionary_short_name[f"C{j}"]
+    def crit(j):
+        return criteria_dictionary_short_name[f"C{j}"]
 
-        summary_table_dict["use_log"] = (
-            "y"
-            if all([crit(j) == "y" for j in range(1, 7)])
-            else ("n" if any([crit(j) == "n" for j in range(1, 7)]) else "m")
+    summary_table_dict["use_log"] = (
+        "y"
+        if all([crit(j) == "y" for j in range(1, 7)])
+        else ("n" if any([crit(j) == "n" for j in range(1, 7)]) else "m")
+    )
+    summary_table_dict["use_lin"] = (
+        "y"
+        if all([crit(j) == "y" for j in [2, 3, 4, 5, 7]])
+        else ("n" if any([crit(j) == "n" for j in [2, 3, 4]]) else "m")
+    )
+
+    summary_table_rows.append(summary_table_dict)
+
+    # Now write to the new data file
+    adjusted_df = group_data
+
+    if (
+        (summary_table_dict["all_values_less_than_or_equal_to_1"] == 0)
+        & (summary_table_dict["all_values_less_than_or_equal_to_100"] == 1)
+        & (
+            bool(
+                re.search(
+                    pattern=r"(?i)percent|(?<!\d)%",
+                    string=group_name[group_vars.index("Metric")],
+                )
+            )
         )
-        summary_table_dict["use_lin"] = (
-            "y"
-            if all([crit(j) == "y" for j in [2, 3, 4, 5, 7]])
-            else ("n" if any([crit(j) == "n" for j in [2, 3, 4]]) else "m")
+    ):  # Condition for 'standardizing'
+        adjusted_df["Value"] = adjusted_df["Value"] / 100
+    elif (group_name[group_vars.index("Indicator Number")] == "3.5") | (
+        (group_name[group_vars.index("Indicator Number")] == "1.1")
+        & (
+            group_name[group_vars.index("Innovation Name")]
+            in ["climate protest", "passive building retrofits"]
         )
+    ):  # condition for cumulating
+        adjusted_dfs.append(adjusted_df)  # append the unaltered dataset
+        adjusted_df["Value"] = adjusted_df["Value"].cumsum()
+        adjusted_df["Description"] = "cumulative " + adjusted_df["Description"]
+        adjusted_df["Metric"] = "cumulative " + adjusted_df["Metric"]
+    else:
+        pass
 
-        summary_table_rows.append(summary_table_dict)
+    adjusted_dfs.append(adjusted_df)
 
-print(f"Scatterplots saved to {plots_pdf_fn}")
+
+pdf_commondb.close()
+pdf_other.close()
+print(f"Scatterplots version {VERSION} saved to pdf.")
+
+pd.concat(adjusted_dfs).to_csv(
+    f"""{path}/adjusted_datasets_{VERSION}.csv""", index=False
+)
 
 summary_df = pd.DataFrame(summary_table_rows)
 
