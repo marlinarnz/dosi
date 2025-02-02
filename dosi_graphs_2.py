@@ -15,10 +15,9 @@ VERSION = "v21"
 VERSION_FOR_FITS = "v21"
 VERSION_FOR_METADATA = "v21"
 VERSION_FOR_DATA = "v21"
-SMALL_SUBSET = True  # Do you only want a small subset for testing?
+SMALL_SUBSET = False  # Do you only want a small subset for testing?
 REDO_FITS = False
 RENUMBER_METADATA_CODES = False
-APPLY_TRANSFORMATIONS_TO_DATA_FILE = True  # Should transformations such as cumulation be applied (True), or not (False)? This is important because otherwise there will be doubles
 
 PATH = "/mnt/c/Users/simon.destercke/Documents/misc/iiasa/DoSI"
 fn_data = f"{PATH}/adjusted_datasets_{VERSION_FOR_DATA}.csv"
@@ -730,6 +729,9 @@ scoring_on_summary = pd.read_csv(
     encoding="ISO-8859-1",
     converters={"Indicator Number": str},
 )
+scoring_on_summary["Innovation Name"] = scoring_on_summary[
+    "Innovation Name"
+].str.lower()
 
 summary_df = pd.merge(
     summary_df,
