@@ -15,8 +15,8 @@ VERSION = "v21"
 VERSION_FOR_FITS = "v21"
 VERSION_FOR_METADATA = "v21"
 VERSION_FOR_DATA = "v21"
-SMALL_SUBSET = False  # Do you only want a small subset for testing?
-REDO_FITS = True
+SMALL_SUBSET = True  # Do you only want a small subset for testing?
+REDO_FITS = False
 RENUMBER_METADATA_CODES = False
 APPLY_TRANSFORMATIONS_TO_DATA_FILE = True  # Should transformations such as cumulation be applied (True), or not (False)? This is important because otherwise there will be doubles
 
@@ -723,6 +723,20 @@ pdf_other.close()
 print(f"Scatterplots version {VERSION} saved to pdf.")
 
 summary_df = pd.DataFrame(summary_table_rows)
+
+# Add in previous scoring from Charlie and Greg
+scoring_on_summary = pd.read_csv(
+    f"{PATH}/summary_table_v12_GN_CWscoring_20250128.csv",
+    encoding="ISO-8859-1",
+    converters={"Indicator Number": str},
+)
+
+summary_df = pd.merge(
+    summary_df,
+    scoring_on_summary[group_vars + [" GN scoring "]],
+    on=group_vars,
+    how="left",
+)
 
 summary_df.to_csv(
     f"""{PATH}/summary_table_{VERSION}.csv""", float_format="%.5g", index=False
