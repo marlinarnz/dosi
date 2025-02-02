@@ -91,17 +91,6 @@ description_counter = int(last_value[1:])  # Presumes a format "d023"
 _, last_value = next(reversed(metadata["Metric"].items()))
 metric_counter = int(last_value[1:])  # Presumes a format "m023"
 
-dfs = []
-for key in ["Description", "Metric"]:
-    # Create a DataFrame for the current dictionary
-    df = pd.DataFrame(list(metadata[key].items()), columns=[key, "code"])
-    # Add an empty column
-    df[""] = ""
-    dfs.append(df)
-
-# Concatenate all DataFrames side-by-side
-final_df = pd.concat(dfs, axis=1)
-
 for key, nested_dict in metadata.items():
     if isinstance(nested_dict, dict):  # Ensure the value is a dictionary
         metadata[key] = {
@@ -747,7 +736,9 @@ for i in range(len(grouped)):
     summary_table_rows.append(summary_table_dict)
 
     # Now write to the new data file
-    adjusted_df = group_data
+
+    ALSO_ADD_ORIGINAL = True
+    OVERLAP = False
 
     if APPLY_TRANSFORMATIONS_TO_DATA_FILE:
         if (
@@ -762,19 +753,25 @@ for i in range(len(grouped)):
                 )
             )
         ):  # Condition for 'standardizing'
+            adjusted_df = group_data
             adjusted_df["Value"] = adjusted_df["Value"] / 100
-        elif (group_name[group_vars.index("Indicator Number")] == "3.5") | (
+            adjusted_dfs.append(adjusted_df)
+            ALSO_ADD_ORIGINAL = False
+
+        if (group_name[group_vars.index("Indicator Number")] == "3.5") | (
             (group_name[group_vars.index("Indicator Number")] == "1.1")
             & (
                 group_name[group_vars.index("Innovation Name")]
                 in ["climate protest", "passive building retrofits"]
             )
         ):  # condition for cumulating
-            adjusted_dfs.append(adjusted_df)  # append the unaltered dataset
+            adjusted_df = group_data
             adjusted_df["Value"] = adjusted_df["Value"].cumsum()
-            description_new = "cumulative " + str(adjusted_df["Description"].unique())
+            description_new = "cumulative " + str(
+                adjusted_df["Description"].unique()[0]
+            )
             adjusted_df["Description"] = description_new
-            metric_new = "cumulative " + str(adjusted_df["Metric"].unique)
+            metric_new = "cumulative " + str(adjusted_df["Metric"].unique()[0])
             adjusted_df["Metric"] = metric_new
             # Now also update dictionaries
             description_counter += 1
@@ -785,16 +782,103 @@ for i in range(len(grouped)):
             metadata["Metric"][metric_new] = convert_to_three_digit_notation(
                 f"m{metric_counter}"
             )
-        else:
-            pass
+            adjusted_dfs.append(adjusted_df)
 
-    adjusted_dfs.append(adjusted_df)
+        if (
+            group_name[group_vars.index("Indicator Number")] in ["4.1", "3.5", "4.2"]
+        ) | (
+            (group_name[group_vars.index("Indicator Number")] == "1.1")
+            & (
+                group_name[group_vars.index("Innovation Name")]
+                in ["eating less meat", "microfinance", "solar leasing"]
+            )
+        ):  # Time series to be partialized up to maximum
+            adjusted_df = group_data
+            max_index = adjusted_df["Value"].idxmax()  # index of maximum
+            adjusted_df = adjusted_df.loc[:max_index]  # truncate
+            description_new = "Partial up to max " + str(
+                adjusted_df["Description"].unique()[0]
+            )
+            adjusted_df["Description"] = description_new
+            metric_new = "Partial up to max " + str(adjusted_df["Metric"].unique()[0])
+            adjusted_df["Metric"] = metric_new
+            # Now also update dictionaries
+            description_counter += 1
+            metadata["Description"][description_new] = convert_to_three_digit_notation(
+                f"d{description_counter}"
+            )
+            metric_counter += 1
+            metadata["Metric"][metric_new] = convert_to_three_digit_notation(
+                f"m{metric_counter}"
+            )
+            adjusted_dfs.append(adjusted_df)
+
+        if (group_name[group_vars.index("Indicator Number")] == "1.1") & (
+            group_name[group_vars.index("Innovation Name")] in ["teleworking"]
+        ):  # Time series to be partialized up to 2019
+            adjusted_df = group_data
+            index_2019 = adjusted_df.index[
+                adjusted_df["Year"] == 2019
+            ].item()  # index of maximum
+            adjusted_df = adjusted_df.loc[:index_2019]  # truncate
+            description_new = "Partial up to 2019 " + str(
+                adjusted_df["Description"].unique()[0]
+            )
+            adjusted_df["Description"] = description_new
+            metric_new = "Partial up to 2019 " + str(adjusted_df["Metric"].unique()[0])
+            adjusted_df["Metric"] = metric_new
+            # Now also update dictionaries
+            description_counter += 1
+            metadata["Description"][description_new] = convert_to_three_digit_notation(
+                f"d{description_counter}"
+            )
+            metric_counter += 1
+            metadata["Metric"][metric_new] = convert_to_three_digit_notation(
+                f"m{metric_counter}"
+            )
+            adjusted_dfs.append(adjusted_df)
+
+        if (group_name[group_vars.index("Indicator Number")] == "1.1") & (
+            group_name[group_vars.index("Innovation Name")]
+            in ["microfinance", "eating less meat"]
+        ):  # Time series to be partialized up to minimum
+            adjusted_df = group_data
+            min_index = adjusted_df["Value"].idxmax()  # index of maximum
+            adjusted_df = adjusted_df.loc[:min_index]  # truncate
+            description_new = "Partial up to min " + str(
+                adjusted_df["Description"].unique()[0]
+            )
+            adjusted_df["Description"] = description_new
+            metric_new = "Partial up to min " + str(adjusted_df["Metric"].unique()[0])
+            adjusted_df["Metric"] = metric_new
+            # Now also update dictionaries
+            description_counter += 1
+            metadata["Description"][description_new] = convert_to_three_digit_notation(
+                f"d{description_counter}"
+            )
+            metric_counter += 1
+            metadata["Metric"][metric_new] = convert_to_three_digit_notation(
+                f"m{metric_counter}"
+            )
+            adjusted_dfs.append(adjusted_df)
+
+    if ALSO_ADD_ORIGINAL:
+        adjusted_dfs.append(group_data)
 
 
 pdf_commondb.close()
 pdf_other.close()
 print(f"Scatterplots version {VERSION} saved to pdf.")
 
+dfs = []
+for key in ["Description", "Metric"]:
+    # Create a DataFrame for the current dictionary
+    df = pd.DataFrame(list(metadata[key].items()), columns=[key, "code"])
+    # Add an empty column
+    df[""] = ""
+    dfs.append(df)
+# Concatenate all DataFrames side-by-side
+final_df = pd.concat(dfs, axis=1)
 # Store the dictionaries with the number codes
 metadata_new_fn = f"{PATH}/metadata_numbercodes_{VERSION}.xlsx"
 # Save the result to an Excel file
