@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 from matplotlib.table import Table
 from matplotlib.backends.backend_pdf import PdfPages
 
-VERSION = "v21"
+VERSION = "v22"
 VERSION_FOR_FITS = "v21"
 VERSION_FOR_METADATA = "v21"
 VERSION_FOR_DATA = "v21"
@@ -733,14 +733,55 @@ scoring_on_summary["Innovation Name"] = scoring_on_summary[
     "Innovation Name"
 ].str.lower()
 
+
+def clean_text(text):
+    if isinstance(text, str):  # Ensure it's a string before processing
+        return re.sub(
+            r"[^A-Za-z0-9%#]", "", text
+        ).lower()  # Keep only letters, numbers, % and #
+    return text  # Return as is if not a string
+
+
+columns_to_clean_for_matching = group_vars
+cleaned_columns_names = [s + "_clean" for s in columns_to_clean_for_matching]
+replacement_dict = dict(zip(columns_to_clean_for_matching, cleaned_columns_names))
+
+# Replace elements in a that are found in b with corresponding values from c
+group_vars_clean_names = [
+    replacement_dict[item] if item in replacement_dict else item for item in group_vars
+]
+
+summary_df[cleaned_columns_names] = summary_df[columns_to_clean_for_matching].applymap(
+    lambda x: clean_text(str(x))
+)
+scoring_on_summary[cleaned_columns_names] = scoring_on_summary[
+    columns_to_clean_for_matching
+].applymap(lambda x: clean_text(str(x)))
+
+# DEBUG
+summary_df_debug = pd.merge(
+    summary_df,
+    scoring_on_summary[
+        group_vars_clean_names + [" GN scoring ", "GN comments", "CW scoring"]
+    ],
+    on=group_vars_clean_names,
+    how="outer",
+)
+summary_df_debug.to_csv(
+    f"""{PATH}/summary_table_debug_{VERSION}.csv""", float_format="%.5g", index=False
+)
+
+# Perform the left join using the cleaned columns, but keeping summary_df unchanged
 summary_df = pd.merge(
     summary_df,
-    scoring_on_summary[group_vars + [" GN scoring "]],
-    on=group_vars,
+    scoring_on_summary[
+        group_vars_clean_names + [" GN scoring ", "GN comments", "CW scoring"]
+    ],
+    on=group_vars_clean_names,
     how="left",
 )
 
-summary_df.to_csv(
+summary_df.drop(columns=group_vars_clean_names).to_csv(
     f"""{PATH}/summary_table_{VERSION}.csv""", float_format="%.5g", index=False
 )
 
