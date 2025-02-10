@@ -239,10 +239,8 @@ for i in range(len(grouped)):
         adjusted_df = group_data.copy()
         adjusted_df["Value"] = adjusted_df["Value"].cumsum()
         description_new = "cumulative " + str(adjusted_df["Description"].unique()[0])
-        adjusted_df["Description"] = description_new
         metric_new = "cumulative " + str(adjusted_df["Metric"].unique()[0])
-        adjusted_df["Metric"] = metric_new
-        update_dictionaries(description_new, metric_new)
+        adjusted_df = update_dictionaries(description_new, metric_new, adjusted_df)
         adjusted_dfs.append(adjusted_df)
 
     if (group_name[group_vars.index("Indicator Number")] in ["4.1", "3.5", "4.2"]) | (
@@ -258,10 +256,8 @@ for i in range(len(grouped)):
         description_new = "Partial up to max " + str(
             adjusted_df["Description"].unique()[0]
         )
-        adjusted_df["Description"] = description_new
         metric_new = "Partial up to max " + str(adjusted_df["Metric"].unique()[0])
-        adjusted_df["Metric"] = metric_new
-        update_dictionaries(description_new, metric_new)
+        adjusted_df = update_dictionaries(description_new, metric_new, adjusted_df)
         adjusted_dfs.append(adjusted_df)
 
     if (group_name[group_vars.index("Indicator Number")] == "1.1") & (
@@ -275,10 +271,8 @@ for i in range(len(grouped)):
         description_new = "Partial up to 2019 " + str(
             adjusted_df["Description"].unique()[0]
         )
-        adjusted_df["Description"] = description_new
         metric_new = "Partial up to 2019 " + str(adjusted_df["Metric"].unique()[0])
-        adjusted_df["Metric"] = metric_new
-        update_dictionaries(description_new, metric_new)
+        adjusted_df = update_dictionaries(description_new, metric_new, adjusted_df)
         adjusted_dfs.append(adjusted_df)
 
     # Commenting out block below as I'm not sure what to do with zero values
