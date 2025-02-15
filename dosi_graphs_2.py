@@ -346,7 +346,7 @@ adjusted_dfs = []  # For storing the adjusted data frames
 # Loop through each group and create a scatterplot
 for i in range(len(grouped)):
 
-    print(f"\rProgress: {i*100.0/len(grouped)}%", end="", flush=True)
+    print(f"\rProgress: {(i*100.0/len(grouped)):.1g}%", end="", flush=True)
 
     sorted_index = sorted_indices[i]
 
