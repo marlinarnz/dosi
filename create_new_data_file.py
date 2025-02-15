@@ -253,11 +253,24 @@ for i in range(len(grouped)):
     ):  # Time series to be partialized up to maximum
         adjusted_df = group_data.copy()
         max_index = adjusted_df["Value"].idxmax()  # index of maximum
-        adjusted_df = adjusted_df.loc[:max_index]  # truncate
+        adjusted_df = adjusted_df.loc[: max_index + 1]  # truncate
         description_new = "Partial up to max " + str(
             adjusted_df["Description"].unique()[0]
         )
         metric_new = "Partial up to max " + str(adjusted_df["Metric"].unique()[0])
+        adjusted_df = update_dictionaries(description_new, metric_new, adjusted_df)
+        adjusted_dfs.append(adjusted_df)
+
+    if (group_name[group_vars.index("Indicator Number")] == "1.1") & (
+        group_name[group_vars.index("Innovation Name")] in ["eating less meat"]
+    ):  # Time series to be partialized after the maximum
+        adjusted_df = group_data.copy()
+        max_index = adjusted_df["Value"].idxmax()  # index of maximum
+        adjusted_df = adjusted_df.loc[max_index:]  # truncate
+        description_new = "Partial max and after " + str(
+            adjusted_df["Description"].unique()[0]
+        )
+        metric_new = "Partial max and after " + str(adjusted_df["Metric"].unique()[0])
         adjusted_df = update_dictionaries(description_new, metric_new, adjusted_df)
         adjusted_dfs.append(adjusted_df)
 
