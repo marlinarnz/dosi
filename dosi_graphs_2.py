@@ -11,12 +11,12 @@ import matplotlib.pyplot as plt
 from matplotlib.table import Table
 from matplotlib.backends.backend_pdf import PdfPages
 
-VERSION = "v23"
-VERSION_FOR_FITS = "v21"
-VERSION_FOR_METADATA = "v22"
-VERSION_FOR_DATA = "v22"
+VERSION = "v24"
+VERSION_FOR_FITS = "v24"
+VERSION_FOR_METADATA = "v23"
+VERSION_FOR_DATA = "v23"
 SMALL_SUBSET = False  # Do you only want a small subset for testing?
-REDO_FITS = False
+REDO_FITS = True
 RENUMBER_METADATA_CODES = False
 
 PATH = "/mnt/c/Users/simon.destercke/Documents/misc/iiasa/DoSI"
@@ -346,7 +346,7 @@ adjusted_dfs = []  # For storing the adjusted data frames
 # Loop through each group and create a scatterplot
 for i in range(len(grouped)):
 
-    print(i)
+    print(f"\rProgress: {i*100.0/len(grouped)}%", end="", flush=True)
 
     sorted_index = sorted_indices[i]
 
@@ -574,7 +574,7 @@ for i in range(len(grouped)):
     # Save the current plot to the PDF
     if group_name[2] in COMMON_DATABASES_INDICATOR_CODES:
         pdf_commondb.savefig()  # Save current figure into the PDF
-    elif group_name[group_vars.index("Metric")] == "market share"
+    elif group_name[group_vars.index("Metric")] == "market share":
         pdf_marketshares.savefig()
     else:
         pdf_other.savefig()

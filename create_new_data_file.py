@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from matplotlib.table import Table
 from matplotlib.backends.backend_pdf import PdfPages
 
-VERSION = "v22"
+VERSION = "v23"
 VERSION_FOR_FITS = "v15"
 VERSION_FOR_METADATA = "v19"
 SMALL_SUBSET = False  # Do you only want a small subset for testing?
@@ -19,7 +19,9 @@ APPLY_TRANSFORMATIONS_TO_DATA_FILE = True  # Should transformations such as cumu
 PATH = "/mnt/c/Users/simon.destercke/Documents/misc/iiasa/DoSI"
 fn_data = f"{PATH}/Merged_Cleaned_Pitchbook_WebOfScience_GoogleTrends_Data_10Jan_corrected_SDS.xlsx"
 
-fn_market_share_indicators = f"{PATH}/Supplemental MS denominator data_20250208.xlsx"
+fn_market_share_indicators = (
+    f"{PATH}/Supplemental MS denominator data_20250208_SDScorrection20250215.xlsx"
+)
 sheetname_market_share_indicators = "Data"
 
 adoptions_df = pd.read_excel(
@@ -146,7 +148,6 @@ def update_dictionaries(description_new, metric_new, df):
             f"m{metric_counter}"
         )
         counter_added_metric += 1
-    adjusted_dfs.append(adjusted_df)
 
     df["Description"] = description_new
     df["Metric"] = metric_new
@@ -343,7 +344,7 @@ market_share_df = adoptions_df[
     & (adoptions_df["Description"] == "% red in total meat consumption")
 ].copy()
 ms_check_empty(market_share_df, innovation_name)
-description_new = "red meat as a share of food consumption"
+description_new = "red meat as a share of meat consumption"
 metric_new = "market share"
 market_share_df = update_dictionaries(description_new, metric_new, market_share_df)
 adjusted_dfs.append(market_share_df)
@@ -400,31 +401,13 @@ market_share_df = update_dictionaries(description_new, metric_new, market_share_
 adjusted_dfs.append(market_share_df)
 
 
-innovation_name = "low-carbon long distance travel"
-market_share_df = adoptions_df[
-    (adoptions_df["Innovation Name"] == innovation_name)
-    & (adoptions_df["Description"] == "Passengers carried in railways")
-].copy()
-ms_check_empty(market_share_df, innovation_name)
-market_share_df = market_share_df.merge(
-    market_share_indicators[market_share_indicators["Indicator"] == "road+rail pkm"],
-    left_on=["Spatial Scale", "Year"],
-    right_on=["Country", "Year"],
-    how="left",
-)
-market_share_df["Value"] = market_share_df["Value_x"] * 1e6 / market_share_df["Value_y"]
-description_new = "share of pkm by rail"
-metric_new = "market share"
-market_share_df = update_dictionaries(description_new, metric_new, market_share_df)
-adjusted_dfs.append(market_share_df)
-
 innovation_name = "car ownership"
 market_share_df = adoptions_df[
     (adoptions_df["Innovation Name"] == innovation_name)
     & (adoptions_df["Metric"] == "cars per 1,000 inhabitants")
 ].copy()
 ms_check_empty(market_share_df, innovation_name)
-market_share_df["Value"] = market_share_df["Value"] * 1e3
+market_share_df["Value"] = market_share_df["Value"] / 1e3
 description_new = "cars per person"
 metric_new = "market share"
 market_share_df = update_dictionaries(description_new, metric_new, market_share_df)
@@ -592,7 +575,7 @@ market_share_df = update_dictionaries(description_new, metric_new, market_share_
 adjusted_dfs.append(market_share_df)
 
 
-innovation_name = "co-housing"  # Part one, no adjustment needed
+innovation_name = "co-housing"
 market_share_df = adoptions_df[
     (adoptions_df["Innovation Name"] == innovation_name)
     & (adoptions_df["Metric"].isin(["# residents", "# projects", "# cooperatives"]))
@@ -639,6 +622,35 @@ metric_new = "market share"
 market_share_df = update_dictionaries(description_new, metric_new, market_share_df)
 adjusted_dfs.append(market_share_df)
 
+innovation_name = "food waste reduction"
+market_share_df = adoptions_df[
+    (adoptions_df["Innovation Name"] == innovation_name)
+    & (
+        adoptions_df["Description"].isin(
+            [
+                "Food waste generated in the US",
+                "Global edible food waste per capita, total",
+            ]
+        )
+    )
+].copy()
+market_share_df = market_share_df.merge(
+    market_share_indicators[
+        (market_share_indicators["Indicator"] == "total kg food")
+        & (market_share_indicators["SI"] == "eating less meat")
+    ],
+    left_on=["Spatial Scale", "Year"],
+    right_on=["Country", "Year"],
+    how="left",
+)
+ms_check_empty(market_share_df, innovation_name)
+market_share_df["Value"] = market_share_df["Value_x"] / market_share_df["Value_y"]
+description_new = "share of food that is wasted"
+metric_new = "market share"
+market_share_df = update_dictionaries(description_new, metric_new, market_share_df)
+market_share_df = market_share_df[columns_to_keep]
+adjusted_dfs.append(market_share_df)
+
 
 innovation_name = "e-commerce"
 market_share_df = adoptions_df[
@@ -655,6 +667,364 @@ market_share_df = adoptions_df[
 ms_check_empty(market_share_df, innovation_name)
 market_share_df["Value"] = market_share_df["Value"] / 100
 description_new = "Internet sales as a share of total retail sales"
+metric_new = "market share"
+market_share_df = update_dictionaries(description_new, metric_new, market_share_df)
+adjusted_dfs.append(market_share_df)
+
+
+innovation_name = "passive building retrofits"
+market_share_df = adoptions_df[
+    (adoptions_df["Innovation Name"] == innovation_name)
+    & (adoptions_df["Description"].isin(["renovation"]))
+    & (adoptions_df["Metric"].isin(["number of buildings"]))
+].copy()
+market_share_df = market_share_df.merge(
+    market_share_indicators[
+        (market_share_indicators["Indicator"] == "# new renovated houses")
+        & (market_share_indicators["SI"] == "passive building retrofits")
+    ],
+    left_on=["Spatial Scale", "Year"],
+    right_on=["Country", "Year"],
+    how="left",
+)
+ms_check_empty(market_share_df, innovation_name)
+market_share_df["Value"] = market_share_df["Value_x"] / market_share_df["Value_y"]
+description_new = "share of building stock getting passive-bldg retrofits"
+metric_new = "market share"
+market_share_df = update_dictionaries(description_new, metric_new, market_share_df)
+market_share_df = market_share_df[columns_to_keep]
+adjusted_dfs.append(market_share_df)
+
+
+innovation_name = "car sharing"
+market_share_df = adoptions_df[
+    (adoptions_df["Innovation Name"] == innovation_name)
+    & (adoptions_df["Description"].isin(["registered drivers"]))
+    & (adoptions_df["Metric"].isin(["# drivers"]))
+].copy()
+market_share_df = market_share_df.merge(
+    market_share_indicators[
+        (market_share_indicators["Indicator"] == "population")
+        & (market_share_indicators["SI"] == "car sharing")
+    ],
+    left_on=["Spatial Scale", "Year"],
+    right_on=["Country", "Year"],
+    how="left",
+)
+ms_check_empty(market_share_df, innovation_name)
+market_share_df["Value"] = market_share_df["Value_x"] / market_share_df["Value_y"]
+description_new = "share of drivers who car share"
+metric_new = "market share"
+market_share_df = update_dictionaries(description_new, metric_new, market_share_df)
+market_share_df = market_share_df[columns_to_keep]
+adjusted_dfs.append(market_share_df)
+
+
+innovation_name = "microfinance"
+market_share_df = adoptions_df[
+    (adoptions_df["Innovation Name"] == innovation_name)
+    & (adoptions_df["Description"].isin(["Number of active borrowers"]))
+    & (adoptions_df["Metric"].isin(["No."]))
+].copy()
+market_share_df = market_share_df.merge(
+    market_share_indicators[
+        (market_share_indicators["Indicator"] == "Population")
+        & (market_share_indicators["SI"] == "microfinance")
+    ],
+    left_on=["Spatial Scale", "Year"],
+    right_on=["Country", "Year"],
+    how="left",
+)
+ms_check_empty(market_share_df, innovation_name)
+market_share_df["Value"] = market_share_df["Value_x"] / market_share_df["Value_y"]
+description_new = "active borrowers as a share of population"
+metric_new = "market share"
+market_share_df = update_dictionaries(description_new, metric_new, market_share_df)
+market_share_df = market_share_df[columns_to_keep]
+adjusted_dfs.append(market_share_df)
+
+
+innovation_name = "solar leasing"
+market_share_df = adoptions_df[
+    (adoptions_df["Innovation Name"] == innovation_name)
+    & (
+        adoptions_df["Description"].isin(
+            [
+                "% third party owned systems ($50k-$100k)",
+                "% third party owned systems (<$50k)",
+            ]
+        )
+    )
+    & (adoptions_df["Metric"].isin(["%"]))
+].copy()
+market_share_df = (
+    market_share_df.groupby(
+        [
+            "Year",
+            "Spatial Scale",
+            "Innovation Name",
+            "Indicator Number",
+            "Indicator Name",
+        ]
+    )
+    .agg(
+        {
+            "Value": "mean",
+            "Data Source": lambda x: ", ".join(map(str, set(x.dropna()))),
+            "Comments": lambda x: ", ".join(map(str, set(x.dropna()))),
+            "File": lambda x: ", ".join(map(str, set(x.dropna()))),
+            "Sheet": lambda x: ", ".join(
+                map(str, set(x.dropna()))
+            ),  # Join unique values as a string
+        }
+    )
+    .reset_index()
+)
+ms_check_empty(market_share_df, innovation_name)
+description_new = "share of new solar owned by 3rd parties (HH<$100k)"
+metric_new = "market share"
+market_share_df = update_dictionaries(description_new, metric_new, market_share_df)
+market_share_df = market_share_df[columns_to_keep]
+adjusted_dfs.append(market_share_df)
+
+
+innovation_name = "firm ESG reporting"
+market_share_df = adoptions_df[
+    (adoptions_df["Innovation Name"] == innovation_name)
+    & (adoptions_df["Description"].isin(["Voluntary adoption of GRI reporting"]))
+    & (adoptions_df["Metric"].isin(["# of companies"]))
+].copy()
+market_share_df = market_share_df.merge(
+    market_share_indicators[
+        (market_share_indicators["Indicator"] == "# of firms")
+        & (market_share_indicators["SI"] == innovation_name)
+    ],
+    left_on=["Spatial Scale", "Year"],
+    right_on=["Country", "Year"],
+    how="left",
+)
+ms_check_empty(market_share_df, innovation_name)
+market_share_df["Value"] = market_share_df["Value_x"] / market_share_df["Value_y"]
+description_new = "share of firms voluntarily adopting gri reporting"
+metric_new = "market share"
+market_share_df = update_dictionaries(description_new, metric_new, market_share_df)
+market_share_df = market_share_df[columns_to_keep]
+adjusted_dfs.append(market_share_df)
+
+
+# Textile recycling
+innovation_name = "textile recycling"
+market_share_df = adoptions_df[
+    (adoptions_df["Innovation Name"] == innovation_name)
+    & (
+        adoptions_df["Description"].isin(
+            ["Recycled textiles as a share of textiles generation."]
+        )
+    )
+    & (adoptions_df["Metric"] == "%")
+].copy()
+ms_check_empty(market_share_df, innovation_name)
+description_new = "recycled textiles as a share of textiles generation."
+metric_new = "market share"
+market_share_df = update_dictionaries(description_new, metric_new, market_share_df)
+adjusted_dfs.append(market_share_df)
+
+
+# Digital skills
+innovation_name = "digital skills"
+market_share_df = adoptions_df[
+    (adoptions_df["Innovation Name"] == innovation_name)
+    & (
+        adoptions_df["Description"].isin(
+            [
+                "Online activity: doing online course",
+                "Online activity: emailing",
+                "Online activity: social networks",
+                "Online activity: finding info",
+                "Online activity: banking",
+                "Online activity: selling",
+            ]
+        )
+    )
+    & (adoptions_df["Metric"].isin(["% individuals"]))
+].copy()
+market_share_df = (
+    market_share_df.groupby(
+        [
+            "Year",
+            "Spatial Scale",
+            "Innovation Name",
+            "Indicator Number",
+            "Indicator Name",
+        ]
+    )
+    .agg(
+        {
+            "Value": "mean",
+            "Data Source": lambda x: ", ".join(map(str, set(x.dropna()))),
+            "Comments": lambda x: ", ".join(map(str, set(x.dropna()))),
+            "File": lambda x: ", ".join(map(str, set(x.dropna()))),
+            "Sheet": lambda x: ", ".join(
+                map(str, set(x.dropna()))
+            ),  # Join unique values as a string
+        }
+    )
+    .reset_index()
+)
+ms_check_empty(market_share_df, innovation_name)
+market_share_df["Value"] = (
+    market_share_df["Value"] / 100
+)  # Because values are >1 and we want shares 0-1
+description_new = "share of people engaged in 6 online activities"
+metric_new = "market share"
+market_share_df = update_dictionaries(description_new, metric_new, market_share_df)
+market_share_df = market_share_df[columns_to_keep]
+adjusted_dfs.append(market_share_df)
+
+
+# e-government
+innovation_name = "e-government"
+market_share_df = adoptions_df[
+    (adoptions_df["Innovation Name"] == innovation_name)
+    & (
+        adoptions_df["Description"]
+        == "% people who interacted online with public authorities (in the past year)"
+    )
+    & (adoptions_df["Metric"] == "%")
+].copy()
+ms_check_empty(market_share_df, innovation_name)
+market_share_df["Value"] = (
+    market_share_df["Value"] / 100
+)  # Because values are >1 and we want shares 0-1
+description_new = (
+    "share of people who interacted with public authorities (in the past year)"
+)
+metric_new = "market share"
+market_share_df = update_dictionaries(description_new, metric_new, market_share_df)
+adjusted_dfs.append(market_share_df)
+
+
+# climate protest
+innovation_name = "climate protest"
+market_share_df = adoptions_df[
+    (adoptions_df["Innovation Name"] == innovation_name)
+    & (
+        adoptions_df["Description"]
+        == "Count of participants at protest events related to climate"
+    )
+    & (adoptions_df["Metric"] == "# people (estimated)")
+].copy()
+market_share_df["Value"] = market_share_df.groupby(
+    [
+        "Spatial Scale",
+        "Innovation Name",
+        "Indicator Number",
+        "Indicator Name",
+    ]
+)[
+    "Value"
+].cumsum()  # Get cumulative sum
+market_share_df = market_share_df.merge(
+    market_share_indicators[
+        (market_share_indicators["Indicator"] == "Population")
+        & (market_share_indicators["SI"] == innovation_name)
+    ],
+    left_on=["Spatial Scale", "Year"],
+    right_on=["Country", "Year"],
+    how="left",
+)
+ms_check_empty(market_share_df, innovation_name)
+market_share_df["Value"] = market_share_df["Value_x"] / market_share_df["Value_y"]
+description_new = (
+    "cumulative share of population participating in protest events related to climate"
+)
+metric_new = "market share"
+market_share_df = update_dictionaries(description_new, metric_new, market_share_df)
+market_share_df = market_share_df[columns_to_keep]
+adjusted_dfs.append(market_share_df)
+
+
+# energy community
+innovation_name = "energy community"
+market_share_df = adoptions_df[
+    (adoptions_df["Innovation Name"] == innovation_name)
+    & (adoptions_df["Description"] == "Total energy communities")
+    & (adoptions_df["Metric"] == "# communities")
+].copy()
+market_share_df = market_share_df.merge(
+    market_share_indicators[
+        (market_share_indicators["Indicator"] == "Population")
+        & (market_share_indicators["SI"] == innovation_name)
+    ],
+    left_on=["Spatial Scale", "Year"],
+    right_on=["Country", "Year"],
+    how="left",
+)
+ms_check_empty(market_share_df, innovation_name)
+market_share_df["Value"] = 200 * market_share_df["Value_x"] / market_share_df["Value_y"]
+description_new = "share of population in energy communities"
+metric_new = "market share"
+market_share_df = update_dictionaries(description_new, metric_new, market_share_df)
+market_share_df = market_share_df[columns_to_keep]
+adjusted_dfs.append(market_share_df)
+
+
+# quitting smoking
+innovation_name = "quitting smoking"
+market_share_df = adoptions_df[
+    (adoptions_df["Innovation Name"] == innovation_name)
+    & (adoptions_df["Description"] == "Share of adults who smoke")
+    & (adoptions_df["Metric"] == "% of adults")
+].copy()
+ms_check_empty(market_share_df, innovation_name)
+market_share_df["Value"] = (
+    market_share_df["Value"] / 100
+)  # Because values are >1 and we want shares 0-1
+description_new = "share of payments that are non-cash"
+metric_new = "market share"
+market_share_df = update_dictionaries(description_new, metric_new, market_share_df)
+adjusted_dfs.append(market_share_df)
+
+
+# postage stamps - no market share data needed
+
+
+# non-cash transactions
+innovation_name = "non-cash transactions"
+market_share_df = adoptions_df[
+    (adoptions_df["Innovation Name"] == innovation_name)
+    & (
+        (
+            (
+                adoptions_df["Description"]
+                == "Share of payment instrument use for all payments"
+            )
+            & (adoptions_df["Metric"] == "% cash payments as % of all payments")
+            & (adoptions_df["Spatial Scale"] == "US")
+        )
+        | (
+            (
+                adoptions_df["Description"]
+                == "proportion of cash payments to all payment types (total numbers)"
+            )
+            & (adoptions_df["Metric"] == "% cash payments of total number of payments")
+            & (adoptions_df["Spatial Scale"] == "UK")
+        )
+        | (
+            (
+                adoptions_df["Description"]
+                == "Percentage of people who paid cash for their last in-store purchase"
+            )
+            & (adoptions_df["Metric"] == "% most recent in-store purchase in cash")
+            & (adoptions_df["Spatial Scale"] == "Sweden")
+        )
+    )
+].copy()
+ms_check_empty(market_share_df, innovation_name)
+market_share_df["Value"] = 1 - (
+    market_share_df["Value"] / 100
+)  # Because values are >1 and we want shares 0-1
+description_new = "share of payments that are non-cash"
 metric_new = "market share"
 market_share_df = update_dictionaries(description_new, metric_new, market_share_df)
 adjusted_dfs.append(market_share_df)
