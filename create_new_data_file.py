@@ -355,6 +355,7 @@ market_share_df = adoptions_df[
     & (adoptions_df["Description"] == "Organic retail sales share [%]")
 ].copy()
 ms_check_empty(market_share_df, innovation_name)
+market_share_df["Value"] = market_share_df["Value"] / 100
 description_new = "organic as a share of retail sales"
 metric_new = "market share"
 market_share_df = update_dictionaries(description_new, metric_new, market_share_df)
