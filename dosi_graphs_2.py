@@ -16,7 +16,7 @@ VERSION_FOR_FITS = "v24"
 VERSION_FOR_METADATA = "v23"
 VERSION_FOR_DATA = "v23"
 SMALL_SUBSET = False  # Do you only want a small subset for testing?
-REDO_FITS = True
+REDO_FITS = False
 RENUMBER_METADATA_CODES = False
 
 PATH = "/mnt/c/Users/simon.destercke/Documents/misc/iiasa/DoSI"
@@ -340,6 +340,7 @@ COMMON_DATABASES_INDICATOR_CODES = [
 pdf_commondb = PdfPages(f"{PATH}/scatterplots_{VERSION}_COMMON.pdf")
 pdf_other = PdfPages(f"{PATH}/scatterplots_{VERSION}_OTHER.pdf")
 pdf_marketshares = PdfPages(f"{PATH}/scatterplots_{VERSION}_MARKETSHARES.pdf")
+pdf_all = PdfPages(f"{PATH}/scatterplots_{VERSION}_ALL.pdf")
 
 adjusted_dfs = []  # For storing the adjusted data frames
 
@@ -572,6 +573,7 @@ for i in range(len(grouped)):
     plt.grid(True)
 
     # Save the current plot to the PDF
+    pdf_all.savefig()
     if group_name[2] in COMMON_DATABASES_INDICATOR_CODES:
         pdf_commondb.savefig()  # Save current figure into the PDF
     elif group_name[group_vars.index("Metric")] == "market share":
@@ -723,6 +725,7 @@ for i in range(len(grouped)):
 pdf_commondb.close()
 pdf_marketshares.close()
 pdf_other.close()
+pdf_all.close()
 print(f"Scatterplots version {VERSION} saved to pdf.")
 
 summary_df = pd.DataFrame(summary_table_rows)
