@@ -11,13 +11,16 @@ import matplotlib.pyplot as plt
 from matplotlib.table import Table
 from matplotlib.backends.backend_pdf import PdfPages
 
-VERSION = "v24"
-VERSION_FOR_FITS = "v24"
-VERSION_FOR_METADATA = "v23"
-VERSION_FOR_DATA = "v23"
+VERSION = "v25"
+VERSION_FOR_FITS = "v25"
+VERSION_FOR_METADATA = "v24"
+VERSION_FOR_DATA = "v24"
 SMALL_SUBSET = False  # Do you only want a small subset for testing?
 REDO_FITS = False
 RENUMBER_METADATA_CODES = False
+CREATE_PDFS = False
+
+LINE_COLOR_LOG = "blue"
 
 PATH = "/mnt/c/Users/simon.destercke/Documents/misc/iiasa/DoSI"
 fn_data = f"{PATH}/adjusted_datasets_{VERSION_FOR_DATA}.csv"
@@ -337,10 +340,11 @@ COMMON_DATABASES_INDICATOR_CODES = [
     "4.1",
 ]  # to be written to a separate pdf
 
-pdf_commondb = PdfPages(f"{PATH}/scatterplots_{VERSION}_COMMON.pdf")
-pdf_other = PdfPages(f"{PATH}/scatterplots_{VERSION}_OTHER.pdf")
-pdf_marketshares = PdfPages(f"{PATH}/scatterplots_{VERSION}_MARKETSHARES.pdf")
-pdf_all = PdfPages(f"{PATH}/scatterplots_{VERSION}_ALL.pdf")
+if CREATE_PDFS:
+    pdf_commondb = PdfPages(f"{PATH}/scatterplots_{VERSION}_COMMON.pdf")
+    pdf_other = PdfPages(f"{PATH}/scatterplots_{VERSION}_OTHER.pdf")
+    pdf_marketshares = PdfPages(f"{PATH}/scatterplots_{VERSION}_MARKETSHARES.pdf")
+    pdf_all = PdfPages(f"{PATH}/scatterplots_{VERSION}_ALL.pdf")
 
 adjusted_dfs = []  # For storing the adjusted data frames
 
@@ -414,7 +418,6 @@ for i in range(len(grouped)):
     )
 
     # Logistic fit line
-    line_color_log = "blue"
     results_filtered = results_logistic[
         results_logistic[group_vars].apply(tuple, axis=1).isin([group_name])
     ]
@@ -427,7 +430,7 @@ for i in range(len(grouped)):
     rmse_log = np.sqrt(np.mean((group_data["Value"] - y_pred) ** 2))
     mae_log = np.mean(np.abs(group_data["Value"] - y_pred))
     plt.plot(
-        x_line, y_line_log, color=line_color_log, label="Logistic"
+        x_line, y_line_log, color=LINE_COLOR_LOG, label="Logistic"
     )  # , marker="+")
 
     # Exponential fit line
@@ -506,7 +509,7 @@ for i in range(len(grouped)):
     ]
     table_colors = [
         ["black"] * len(column_labels),
-        [line_color_log, line_color_log] + ["black"] * (len(column_labels) - 2),
+        [LINE_COLOR_LOG, LINE_COLOR_LOG] + ["black"] * (len(column_labels) - 2),
         [line_color_exp, line_color_exp] + ["black"] * (len(column_labels) - 2),
         [line_color_lin, line_color_lin] + ["black"] * (len(column_labels) - 2),
     ]
@@ -572,14 +575,16 @@ for i in range(len(grouped)):
     )
     plt.grid(True)
 
-    # Save the current plot to the PDF
-    pdf_all.savefig()
-    if group_name[2] in COMMON_DATABASES_INDICATOR_CODES:
-        pdf_commondb.savefig()  # Save current figure into the PDF
-    elif group_name[group_vars.index("Metric")] == "market share":
-        pdf_marketshares.savefig()
-    else:
-        pdf_other.savefig()
+    if CREATE_PDFS:
+        # Save the current plot to the PDF
+        pdf_all.savefig()
+        if group_name[2] in COMMON_DATABASES_INDICATOR_CODES:
+            pdf_commondb.savefig()  # Save current figure into the PDF
+        elif group_name[group_vars.index("Metric")] == "market share":
+            pdf_marketshares.savefig()
+        else:
+            pdf_other.savefig()
+
     plt.close()  # Close the figure to free memory
 
     # Create the row for the summary table
@@ -721,12 +726,12 @@ for i in range(len(grouped)):
 
     summary_table_rows.append(summary_table_dict)
 
-
-pdf_commondb.close()
-pdf_marketshares.close()
-pdf_other.close()
-pdf_all.close()
-print(f"Scatterplots version {VERSION} saved to pdf.")
+if CREATE_PDFS:
+    pdf_commondb.close()
+    pdf_marketshares.close()
+    pdf_other.close()
+    pdf_all.close()
+    print(f"Scatterplots version {VERSION} saved to pdf.")
 
 summary_df = pd.DataFrame(summary_table_rows)
 

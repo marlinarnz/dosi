@@ -9,15 +9,14 @@ import matplotlib.pyplot as plt
 from matplotlib.table import Table
 from matplotlib.backends.backend_pdf import PdfPages
 
-VERSION = "v23"
-VERSION_FOR_FITS = "v15"
-VERSION_FOR_METADATA = "v19"
+VERSION = "v24"
+VERSION_FOR_METADATA = "v23"
 SMALL_SUBSET = False  # Do you only want a small subset for testing?
 RENUMBER_METADATA_CODES = False
 APPLY_TRANSFORMATIONS_TO_DATA_FILE = True  # Should transformations such as cumulation be applied (True), or not (False)? This is important because otherwise there will be doubles
 
 PATH = "/mnt/c/Users/simon.destercke/Documents/misc/iiasa/DoSI"
-fn_data = f"{PATH}/Merged_Cleaned_Pitchbook_WebOfScience_GoogleTrends_Data_10Jan_corrected_SDS.xlsx"
+fn_data = f"{PATH}/Merged_Cleaned_Pitchbook_WebOfScience_GoogleTrends_Data_12Mar25.xlsx"
 
 fn_market_share_indicators = (
     f"{PATH}/Supplemental MS denominator data_20250208_SDScorrection20250215.xlsx"
@@ -34,6 +33,11 @@ adoptions_df = adoptions_df.dropna(subset=["Value"])
 adoptions_df["Spatial Scale"] = adoptions_df["Spatial Scale"].str.rstrip()
 adoptions_df["Innovation Name"] = adoptions_df["Innovation Name"].str.rstrip()
 
+# Correct for 'passive building retrofits missnaming'
+adoptions_df["Innovation Name"] = adoptions_df["Innovation Name"].replace(
+    "passive building retrofits", "passive buildings"
+)
+
 # For debugging: only subset
 if SMALL_SUBSET:
     adoptions_df = adoptions_df[
@@ -42,7 +46,7 @@ if SMALL_SUBSET:
         # adoptions_df["Indicator Number"].isin(["1.1"])
     ]
 
-fn_metadata = f"{PATH}/metadata_master_{VERSION_FOR_METADATA}.xlsx"
+fn_metadata = f"{PATH}/metadata_master_{VERSION_FOR_METADATA}_CWedit_SDS20250404.xlsx"
 
 
 def convert_to_three_digit_notation(s):
@@ -764,8 +768,8 @@ market_share_df = adoptions_df[
     & (
         adoptions_df["Description"].isin(
             [
-                "% third party owned systems ($50k-$100k)",
-                "% third party owned systems (<$50k)",
+                "% third party owned systems (income=$50k-$100k)",
+                "% third party owned systems (income<$50k)",
             ]
         )
     )
