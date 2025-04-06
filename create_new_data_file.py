@@ -10,7 +10,7 @@ from matplotlib.table import Table
 from matplotlib.backends.backend_pdf import PdfPages
 
 VERSION = "v24"
-VERSION_FOR_METADATA = "v23"
+# VERSION_FOR_METADATA = "v23"
 SMALL_SUBSET = False  # Do you only want a small subset for testing?
 RENUMBER_METADATA_CODES = False
 APPLY_TRANSFORMATIONS_TO_DATA_FILE = True  # Should transformations such as cumulation be applied (True), or not (False)? This is important because otherwise there will be doubles
@@ -46,7 +46,7 @@ if SMALL_SUBSET:
         # adoptions_df["Indicator Number"].isin(["1.1"])
     ]
 
-fn_metadata = f"{PATH}/metadata_master_{VERSION_FOR_METADATA}_CWedit_SDS20250404.xlsx"
+fn_metadata = f"{PATH}/metadata_master_v23_CWedit_SDS20250404.xlsx"
 
 
 def convert_to_three_digit_notation(s):
@@ -96,11 +96,21 @@ description_counter = int(last_value[1:])  # Presumes a format "d023"
 _, last_value = next(reversed(metadata["Metric"].items()))
 metric_counter = int(last_value[1:])  # Presumes a format "m023"
 
-for key, nested_dict in metadata.items():
-    if isinstance(nested_dict, dict):  # Ensure the value is a dictionary
-        metadata[key] = {
-            k.lower() if isinstance(k, str) else k: v for k, v in nested_dict.items()
-        }
+
+def get_value_case_insensitive(d, search_key):
+    for key in d:
+        if key.lower() == search_key.lower():
+            return d[key]
+    raise KeyError(f"Key '{search_key}' not found (case-insensitive match)")
+
+
+if False:  # Make everything lowercase?
+    for key, nested_dict in metadata.items():
+        if isinstance(nested_dict, dict):  # Ensure the value is a dictionary
+            metadata[key] = {
+                k.lower() if isinstance(k, str) else k: v
+                for k, v in nested_dict.items()
+            }
 
 group_vars = list(metadata.keys())
 
@@ -116,7 +126,7 @@ for group_name, group_data in grouped:
     codes.append(
         "_".join(
             [
-                metadata[group_vars[i]][group_name[i].lower()]
+                get_value_case_insensitive(metadata[group_vars[i]], group_name[i])
                 for i in range(len(metadata))
             ]
         )
@@ -140,13 +150,13 @@ def update_dictionaries(description_new, metric_new, df):
 
     global metadata, description_counter, metric_counter, counter_added_description, counter_added_metric
 
-    if description_new not in metadata["Description"]:
+    if description_new.lower() not in [x.lower() for x in metadata["Description"]]:
         description_counter += 1
         metadata["Description"][description_new] = convert_to_three_digit_notation(
             f"d{description_counter}"
         )
         counter_added_description += 1
-    if metric_new not in metadata["Metric"]:
+    if metric_new.lower() not in [x.lower() for x in metadata["Metric"]]:
         metric_counter += 1
         metadata["Metric"][metric_new] = convert_to_three_digit_notation(
             f"m{metric_counter}"
@@ -238,7 +248,7 @@ for i in range(len(grouped)):
         (group_name[group_vars.index("Indicator Number")] == "1.1")
         & (
             group_name[group_vars.index("Innovation Name")]
-            in ["climate protest", "passive building retrofits"]
+            in ["climate protest", "passive building retrofits", "passive buildings"]
         )
     ):  # condition for cumulating
         adjusted_df = group_data.copy()
