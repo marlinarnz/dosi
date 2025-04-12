@@ -16,7 +16,7 @@ VERSION_FOR_FITS = "v25"
 VERSION_FOR_METADATA = "v24"
 VERSION_FOR_DATA = "v24"
 SMALL_SUBSET = False  # Do you only want a small subset for testing?
-REDO_FITS = False
+REDO_FITS = True
 RENUMBER_METADATA_CODES = False
 CREATE_PDFS = False
 
@@ -736,66 +736,256 @@ if CREATE_PDFS:
 summary_df = pd.DataFrame(summary_table_rows)
 
 # Add in previous scoring from Charlie and Greg
-scoring_on_summary = pd.read_csv(
-    f"{PATH}/summary_table_v12_GN_CWscoring_20250128.csv",
-    encoding="ISO-8859-1",
-    converters={"Indicator Number": str},
+scoring_on_summary = pd.read_excel(
+    f"{PATH}/summary_table_v24_21Mar.xlsx",
+    sheet_name="summary_table_v24_CW",
 )
 scoring_on_summary["Innovation Name"] = scoring_on_summary[
     "Innovation Name"
 ].str.lower()
 
-
-def clean_text(text):
-    if isinstance(text, str):  # Ensure it's a string before processing
-        return re.sub(
-            r"[^A-Za-z0-9%#]", "", text
-        ).lower()  # Keep only letters, numbers, % and #
-    return text  # Return as is if not a string
-
-
-columns_to_clean_for_matching = group_vars
-cleaned_columns_names = [s + "_clean" for s in columns_to_clean_for_matching]
-replacement_dict = dict(zip(columns_to_clean_for_matching, cleaned_columns_names))
-
-# Replace elements in a that are found in b with corresponding values from c
-group_vars_clean_names = [
-    replacement_dict[item] if item in replacement_dict else item for item in group_vars
-]
-
-summary_df[cleaned_columns_names] = summary_df[columns_to_clean_for_matching].applymap(
-    lambda x: clean_text(str(x))
+# Remove indicator name from code
+summary_df["code_without_indicator_name"] = summary_df["Code"].str.replace(
+    r"(_\d+\.\d+)[A-Za-z]{3}", r"\1", regex=True
 )
-scoring_on_summary[cleaned_columns_names] = scoring_on_summary[
-    columns_to_clean_for_matching
-].applymap(lambda x: clean_text(str(x)))
+scoring_on_summary["code_without_indicator_name"] = scoring_on_summary[
+    "Code"
+].str.replace(r"(_\d+\.\d+)[A-Za-z]{3}", r"\1", regex=True)
 
-# DEBUG
-summary_df_debug = pd.merge(
-    summary_df,
-    scoring_on_summary[
-        group_vars_clean_names + [" GN scoring ", "GN comments", "CW scoring"]
+
+#################
+# Include reallocations of indicator numbers that Charlie made
+def reassign_indicator_numbers(
+    df,  # column name
+    innovation_name,
+    descriptions,
+    metrics,
+    old_indicator_number,
+    new_indicator_number,
+    cn="code_without_indicator_name",
+):
+    mask = (
+        (
+            (descriptions == [])
+            | (
+                df[cn].str.contains(
+                    "|".join(
+                        [metadata["Description"][key.lower()] for key in descriptions]
+                    ),
+                    case=False,
+                    na=False,
+                )
+            )
+        )
+        & (
+            (metrics == [])
+            | (
+                df[cn].str.contains(
+                    "|".join([metadata["Metric"][key.lower()] for key in metrics]),
+                    case=False,
+                    na=False,
+                )
+            )
+        )
+    ) & (df[cn].str.contains(innovation_name))
+    df.loc[mask, cn] = df.loc[mask, cn].str.replace(
+        f"_{old_indicator_number}", f"_{new_indicator_number}"
+    )
+    print(f"Changed {sum(mask)} codes")
+    return df
+
+
+scoring_on_summary = reassign_indicator_numbers(
+    scoring_on_summary,
+    "dri",
+    [
+        "% of population holding a drivers licence, by age group<=19yrs",
     ],
-    on=group_vars_clean_names,
-    how="outer",
-)
-summary_df_debug.to_csv(
-    f"""{PATH}/summary_table_debug_{VERSION}.csv""", float_format="%.5g", index=False
+    [],
+    "3.2",
+    "1.1",
 )
 
-# Perform the left join using the cleaned columns, but keeping summary_df unchanged
-summary_df = pd.merge(
-    summary_df,
-    scoring_on_summary[
-        group_vars_clean_names + [" GN scoring ", "GN comments", "CW scoring"]
+scoring_on_summary = reassign_indicator_numbers(
+    scoring_on_summary,
+    "dri",
+    [
+        "% of population (residents) holding a drivers licence",
     ],
-    on=group_vars_clean_names,
+    [],
+    "1.1",
+    "4.3",
+)
+
+scoring_on_summary = reassign_indicator_numbers(
+    scoring_on_summary,
+    "dri",
+    [
+        "% of 18-19yr age group holding a drivers licence, by gender",
+        "% of 18-19yr age group in 2003 holding a drivers licence",
+        "% of population holding a drivers licence, by gender=female",
+        "% of population holding a drivers licence, by gender=male",
+        "% of population holding a drivers licence, by age group 20-24",
+    ],
+    [],
+    "1.1",
+    "3.2",
+)
+
+scoring_on_summary = reassign_indicator_numbers(
+    scoring_on_summary,
+    "sol",
+    [
+        "% third party owned systems (income=$100k-$150k)",
+        "% third party owned systems (income=$150k-$200k)",
+        "% third party owned systems (income=$200k-$250k)",
+        "% third party owned systems (income>$250k)",
+    ],
+    [],
+    "1.1",
+    "3.2",
+)
+
+scoring_on_summary = reassign_indicator_numbers(
+    scoring_on_summary,
+    "eat",
+    [
+        "% poultry+pig in total meat consumption",
+        "per capita beef consumption",
+        "per capita other meat consumption",
+        "per capita pig consumption",
+        "per capita poultry consumption",
+        "per capita sheep & goat consumption",
+    ],
+    [],
+    "1.1",
+    "2.5",
+)
+
+scoring_on_summary = reassign_indicator_numbers(
+    scoring_on_summary,
+    "eco",
+    [
+        "Annual Internet retail (B2C) sales value",
+        "Enterprises' total turnover from e-commerce sales (all activities - B2B, B2C, B2G)",
+    ],
+    [],
+    "1.1",
+    "2.2",
+)
+
+scoring_on_summary = reassign_indicator_numbers(
+    scoring_on_summary,
+    "org",
+    [
+        "organic per capita consumption [€/person]",
+    ],
+    [],
+    "1.1",
+    "2.2",
+)
+
+scoring_on_summary = reassign_indicator_numbers(
+    scoring_on_summary,
+    "pas",
+    [
+        "new passive buildings",
+    ],
+    ["# of new passive buildings"],
+    "1.1",
+    "2.5",
+)
+
+scoring_on_summary = reassign_indicator_numbers(
+    scoring_on_summary,
+    "pas",
+    [
+        "new passive buildings",
+    ],
+    ["new floorspace (m2?)"],
+    "1.1",
+    "2.9",
+)
+
+###################
+
+# Match on codes
+summary_df_merged = summary_df.merge(
+    scoring_on_summary[list(scoring_on_summary.loc[:, "use_log":].columns)],
+    on="code_without_indicator_name",
     how="left",
 )
 
-summary_df.drop(columns=group_vars_clean_names).to_csv(
+print(f"There are {sum(summary_df_merged['PDF page'].isna())} unmatched rows")
+
+summary_df_merged.drop(columns="code_without_indicator_name").to_csv(
     f"""{PATH}/summary_table_{VERSION}.csv""", float_format="%.5g", index=False
 )
+
+# Write unmatched to csv
+scoring_on_summary[
+    ~(
+        scoring_on_summary["code_without_indicator_name"].isin(
+            list(summary_df["code_without_indicator_name"].unique())
+        )
+    )
+].to_csv(
+    f"""{PATH}/summary_table_original_scoring_not_matched_{VERSION}.csv""",
+    float_format="%.5g",
+    index=False,
+)
+
+# # def clean_text(text):
+# #     if isinstance(text, str):  # Ensure it's a string before processing
+# #         return re.sub(
+# #             r"[^A-Za-z0-9%#]", "", text
+# #         ).lower()  # Keep only letters, numbers, % and #
+# #     return text  # Return as is if not a string
+
+
+# # columns_to_clean_for_matching = group_vars
+# # cleaned_columns_names = [s + "_clean" for s in columns_to_clean_for_matching]
+# # replacement_dict = dict(zip(columns_to_clean_for_matching, cleaned_columns_names))
+
+# # # Replace elements in a that are found in b with corresponding values from c
+# # group_vars_clean_names = [
+# #     replacement_dict[item] if item in replacement_dict else item for item in group_vars
+# # ]
+
+# # summary_df[cleaned_columns_names] = summary_df[columns_to_clean_for_matching].applymap(
+# #     lambda x: clean_text(str(x))
+# # )
+# # scoring_on_summary[cleaned_columns_names] = scoring_on_summary[
+# #     columns_to_clean_for_matching
+# # ].applymap(lambda x: clean_text(str(x)))
+
+# # # DEBUG
+# # summary_df_debug = pd.merge(
+# #     summary_df,
+# #     scoring_on_summary[
+# #         group_vars_clean_names + [" GN scoring ", "GN comments", "CW scoring"]
+# #     ],
+# #     on=group_vars_clean_names,
+# #     how="outer",
+# # )
+# summary_df_debug.to_csv(
+#     f"""{PATH}/summary_table_debug_{VERSION}.csv""", float_format="%.5g", index=False
+# )
+
+# summary_df.drop(columns=group_vars_clean_names).to_csv(
+#     f"""{PATH}/summary_table_{VERSION}.csv""", float_format="%.5g", index=False
+# )
+
+# Perform the left join using the cleaned columns, but keeping summary_df unchanged
+# summary_df = pd.merge(
+#     summary_df,
+#     scoring_on_summary[
+#         group_vars_clean_names + [" GN scoring ", "GN comments", "CW scoring"]
+#     ],
+#     on=group_vars_clean_names,
+#     how="left",
+# )
+
 
 # Count the different values
 summary_df_split_of_results = (
