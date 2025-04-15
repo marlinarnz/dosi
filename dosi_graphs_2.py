@@ -15,6 +15,7 @@ from logfits_chatgpt_v1 import fit_logistic_3p
 
 VERSION = "v25"
 VERSION_FOR_FITS = "v25"
+VERSION_FOR_SUMMARY_READING = "v25"
 VERSION_FOR_METADATA = "v24"
 VERSION_FOR_DATA = "v24"
 SMALL_SUBSET = False  # Do you only want a small subset for testing?
@@ -123,6 +124,10 @@ group_vars.insert(3, "Indicator Name")  # Insert the indicator name after the nu
 # Group the data
 grouped = adoptions_df.groupby(group_vars)
 grouped_as_list = list(grouped)
+
+scoring_table = pd.read_csv(
+    f"""{PATH}/summary_table_{VERSION_FOR_SUMMARY_READING}.csv"""
+)
 
 
 def FPLogFit(x, y, threshold=0, thresholdup=0):
@@ -356,6 +361,9 @@ if CREATE_PDFS:
     pdf_other = PdfPages(f"{PATH}/scatterplots_{VERSION}_OTHER.pdf")
     pdf_marketshares = PdfPages(f"{PATH}/scatterplots_{VERSION}_MARKETSHARES.pdf")
     pdf_all = PdfPages(f"{PATH}/scatterplots_{VERSION}_ALL.pdf")
+    pdf_allexceptmarkedfordeletion = PdfPages(
+        f"{PATH}/scatterplots_{VERSION}_ALLexceptmarkedfordeletion.pdf"
+    )
 
 adjusted_dfs = []  # For storing the adjusted data frames
 
@@ -590,6 +598,13 @@ for i in range(len(grouped)):
     if CREATE_PDFS:
         # Save the current plot to the PDF
         pdf_all.savefig()
+        if not (
+            all(
+                scoring_table[scoring_table["Code"] == code]["Delete from working file"]
+                == "delete"
+            )
+        ):
+            pdf_allexceptmarkedfordeletion.savefig()
         if group_name[2] in COMMON_DATABASES_INDICATOR_CODES:
             pdf_commondb.savefig()  # Save current figure into the PDF
         elif group_name[group_vars.index("Metric")] == "market share":
@@ -743,6 +758,7 @@ if CREATE_PDFS:
     pdf_marketshares.close()
     pdf_other.close()
     pdf_all.close()
+    pdf_allexceptmarkedfordeletion.close()
     print(f"Scatterplots version {VERSION} saved to pdf.")
 
 summary_df = pd.DataFrame(summary_table_rows)
