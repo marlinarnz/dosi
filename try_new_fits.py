@@ -139,6 +139,11 @@ problem_fits_data = list(
     # ]
 )
 
+# Write to csv to use in ChatGPT
+pd.concat(
+    [problem_fits_data[i][1][["Year", "Value"]] for i in range(len(problem_fits_codes))]
+).to_csv("problem_fits_data_reduced.csv", index=False)
+
 
 def FPLogValue_with_scaling(x, t0, Dt, s):
     """
@@ -278,7 +283,5 @@ plt.ylim(
 plt.grid(True)
 
 plt.show()
-
-input("...")
 
 plt.close()

@@ -11,14 +11,16 @@ import matplotlib.pyplot as plt
 from matplotlib.table import Table
 from matplotlib.backends.backend_pdf import PdfPages
 
+from logfits_chatgpt_v1 import fit_logistic_3p
+
 VERSION = "v25"
 VERSION_FOR_FITS = "v25"
 VERSION_FOR_METADATA = "v24"
 VERSION_FOR_DATA = "v24"
 SMALL_SUBSET = False  # Do you only want a small subset for testing?
-REDO_FITS = True
+REDO_FITS = False
 RENUMBER_METADATA_CODES = False
-CREATE_PDFS = False
+CREATE_PDFS = True
 
 LINE_COLOR_LOG = "blue"
 
@@ -181,29 +183,38 @@ def FPLogFit_with_scaling(x, y, Dt_initial_guess: float = 10):
     if len(x) < 3:
         return {"t0": None, "Dt": None, "K": None}  # Default parameters
     else:
-        # Initial guesses for the parameters
-        initial_guess = [np.median(x), Dt_initial_guess, np.max(y)]
+        # # Initial guesses for the parameters
+        # initial_guess = [np.median(x), Dt_initial_guess, np.max(y)]
 
-        # Fit the logistic function
-        try:
-            params, _ = curve_fit(
-                FPLogValue_with_scaling,
-                x,
-                y,
-                p0=initial_guess,
-                method="trf",
-                maxfev=5000,
-            )
-            t0, Dt, k = params
-        except RuntimeError:
-            print("RuntimeError")
-            return {"t0": None, "Dt": None, "K": None}  # Handle fitting failure
-        # if t0 + Dt < 2000 and firstrun:
-        #     return FPLogFit_with_scaling(
-        #         x, y, Dt_initial_guess=-5, firstrun=False
-        #     )  # Only one additional attempt
-        # else:
-        return {"t0": t0, "Dt": Dt, "K": k}
+        # # Fit the logistic function
+        # try:
+        #     params, _ = curve_fit(
+        #         FPLogValue_with_scaling,
+        #         x,
+        #         y,
+        #         p0=initial_guess,
+        #         method="trf",
+        #         maxfev=5000,
+        #     )
+        #     t0, Dt, k = params
+        # except RuntimeError:
+        #     print("RuntimeError")
+        #     return {"t0": None, "Dt": None, "K": None}  # Handle fitting failure
+        # # if t0 + Dt < 2000 and firstrun:
+        # #     return FPLogFit_with_scaling(
+        # #         x, y, Dt_initial_guess=-5, firstrun=False
+        # #     )  # Only one additional attempt
+        # # else:
+        # return {"t0": t0, "Dt": Dt, "K": k}
+
+        popt_log, pcov_log, rmse_log = fit_logistic_3p(x, y)
+        if popt_log is not None:
+            A_fit, M_fit, T_fit = popt_log
+            A_err, M_err, T_err = np.sqrt(np.diag(pcov_log))
+        else:
+            A_fit = M_fit = T_fit = A_err = M_err = T_err = np.nan
+
+        return {"t0": T_fit, "Dt": np.log(81) / M_fit, "K": A_fit}
 
 
 # Define the exponential function
@@ -403,13 +414,7 @@ for i in range(len(grouped)):
 
     fig = plt.figure(figsize=(12, 9), constrained_layout=True)
     ax = fig.add_subplot(1, 1, 1)
-    plt.scatter(
-        group_data["Year"],
-        group_data["Value"],
-        label="Data Points",
-        color="black",
-        s=40,
-    )
+    plt.grid(True)
 
     x_line = np.arange(
         min(group_data["Year"]) - LINE_X_BUFFER,
@@ -430,7 +435,7 @@ for i in range(len(grouped)):
     rmse_log = np.sqrt(np.mean((group_data["Value"] - y_pred) ** 2))
     mae_log = np.mean(np.abs(group_data["Value"] - y_pred))
     plt.plot(
-        x_line, y_line_log, color=LINE_COLOR_LOG, label="Logistic"
+        x_line, y_line_log, color=LINE_COLOR_LOG, label="Logistic", linewidth=1.6
     )  # , marker="+")
 
     # Exponential fit line
@@ -446,7 +451,7 @@ for i in range(len(grouped)):
     r2_exp, r2adj_exp = calculate_adjusted_r2(group_data["Value"], y_pred, n_params=2)
     rmse_exp = np.sqrt(np.mean((group_data["Value"] - y_pred) ** 2))
     mae_exp = np.mean(np.abs(group_data["Value"] - y_pred))
-    plt.plot(x_line, y_line_exp, color=line_color_exp, label="Exponential")
+    plt.plot(x_line, y_line_exp, color=line_color_exp, label="Exponential", linewidth=1)
 
     # Linear regression line
     line_color_lin = "green"
@@ -460,7 +465,15 @@ for i in range(len(grouped)):
     r2_lin, r2adj_lin = calculate_adjusted_r2(group_data["Value"], y_pred, n_params=2)
     rmse_lin = np.sqrt(np.mean((group_data["Value"] - y_pred) ** 2))
     mae_lin = np.mean(np.abs(group_data["Value"] - y_pred))
-    plt.plot(x_line, y_line_lin, color=line_color_lin, label="Linear")
+    plt.plot(x_line, y_line_lin, color=line_color_lin, label="Linear", linewidth=1)
+
+    plt.scatter(
+        group_data["Year"],
+        group_data["Value"],
+        label="Data Points",
+        color="black",
+        s=40,
+    )
 
     code = codes[sorted_index]
 
@@ -573,7 +586,6 @@ for i in range(len(grouped)):
             min(max(group_data["Value"]) * 2, max_y_lines),
         ),
     )
-    plt.grid(True)
 
     if CREATE_PDFS:
         # Save the current plot to the PDF
