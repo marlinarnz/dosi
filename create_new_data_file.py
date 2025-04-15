@@ -267,7 +267,7 @@ for i in range(len(grouped)):
     ):  # Time series to be partialized up to maximum
         adjusted_df = group_data.copy()
         max_index = adjusted_df["Value"].idxmax()  # index of maximum
-        adjusted_df = adjusted_df.loc[: max_index + 1]  # truncate
+        adjusted_df = adjusted_df.loc[:max_index]  # truncate
         description_new = "Partial up to max " + str(
             adjusted_df["Description"].unique()[0]
         )
