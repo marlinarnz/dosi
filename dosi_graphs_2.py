@@ -5,7 +5,7 @@ import numpy as np
 
 import re
 from sklearn.linear_model import LinearRegression
-from scipy.optimize import curve_fit
+from scipy.optimize import curve_fit, differential_evolution, minimize
 from scipy.stats import linregress
 import matplotlib.pyplot as plt
 from matplotlib.table import Table
@@ -18,8 +18,8 @@ VERSION_FOR_FITS = "v25"
 VERSION_FOR_SUMMARY_READING = "v25"
 VERSION_FOR_METADATA = "v24"
 VERSION_FOR_DATA = "v24"
-SMALL_SUBSET = False  # Do you only want a small subset for testing?
-REDO_FITS = False
+SMALL_SUBSET = True  # Do you only want a small subset for testing?
+REDO_FITS = True
 RENUMBER_METADATA_CODES = False
 CREATE_PDFS = True
 
@@ -39,9 +39,10 @@ adoptions_df["Innovation Name"] = adoptions_df["Innovation Name"].str.rstrip()
 # For debugging: only subset
 if SMALL_SUBSET:
     adoptions_df = adoptions_df[
-        adoptions_df["Innovation Name"].isin(["car sharing"])
+        # adoptions_df["Innovation Name"].isin(["car sharing"])
         # adoptions_df["Indicator Number"].isin(["3.3", "3.5", "4.1"])
         # adoptions_df["Indicator Number"].isin(["1.1"])
+        adoptions_df["Metric"].isin(["market share"])
     ]
 
 fn_metadata = f"{PATH}/metadata_master_{VERSION_FOR_METADATA}.xlsx"
@@ -307,6 +308,34 @@ def exclude_rule_drop_at_end(data_series, drop_threshold_pct=0.9):
     list_of_exclusions = [True] * len(data_series)
 
 
+# Alternative fitting for market shares that need to be constrained
+# Define an objective (cost) function
+def objective(params, t, y):
+    t0, Dt, s = params
+    y_pred = FPLogValue_with_scaling(t, t0, Dt, s)
+    return np.sum((y - y_pred) ** 2)
+
+
+def alternative_log_fit(x, y):
+    bounds = [
+        (1000, 3000),  # t0
+        (-500, 500),  # Dt
+        (1e-10, 1),  # s or K (asymptote)
+    ]
+    result = differential_evolution(
+        objective,
+        bounds=bounds,
+        args=(group_data["Year"], group_data["Value"]),
+        maxiter=1000,  # You can increase from 1000 if needed
+        seed=42,
+    )
+    t0 = result["x"][0]
+    Dt = result["x"][1]
+    k = result["x"][2]
+    # return pd.Series({"t0": t0, "Dt": Dt, "K": k})
+    return t0, Dt, k
+
+
 if REDO_FITS:
     results_logistic = (
         adoptions_df.groupby(group_vars)
@@ -437,6 +466,10 @@ for i in range(len(grouped)):
     t0 = results_filtered["t0"].values[0]
     Dt = results_filtered["Dt"].values[0]
     k = results_filtered["K"].values[0]
+
+    if (group_data["Metric"].unique() == "market share") & (k > 1):
+        t0, Dt, k = alternative_log_fit(group_data["Year"], group_data["Value"])
+
     y_line_log = FPLogValue_with_scaling(x_line, t0, Dt, k)
     y_pred = FPLogValue_with_scaling(group_data["Year"], t0, Dt, k)
     r2_log, r2adj_log = calculate_adjusted_r2(group_data["Value"], y_pred, n_params=3)

@@ -124,10 +124,11 @@ grouped_as_list = list(grouped)
 
 # Better logistic fits for problem data
 problem_fits_codes = [
-    "low_ger_1.1Ado_d329_m185",
-    "org_uki_1.1Ado_d163_m140",
-    "mic_ban_1.1Ado_d285_m173",
-    "dig_den_1.1Ado_d150_m037",
+    "ene_net_1.1Ado_d347_m185",
+    # "low_ger_1.1Ado_d329_m185",
+    # "org_uki_1.1Ado_d163_m140",
+    # "mic_ban_1.1Ado_d285_m173",
+    # "dig_den_1.1Ado_d150_m037",
 ]
 
 problem_fits_data = list(
@@ -188,22 +189,22 @@ def objective(params, t, y):
 
 # Bounds for A, B, r (adjust as appropriate)
 bounds = [
-    (1900, 2100),  # t0
+    (1000, 3000),  # t0
     (0.1, 500),  # Dt
-    (1e-2, 1000),  # s or K (asymptote)
+    (1e-10, 1),  # s or K (asymptote)
 ]
 
-# result = differential_evolution(
-#     objective,
-#     bounds=bounds,
-#     args=(group_data["Year"], group_data["Value"]),
-#     maxiter=1000,  # You can increase from 1000 if needed
-#     seed=42,
-# )
+result = differential_evolution(
+    objective,
+    bounds=bounds,
+    args=(group_data["Year"], group_data["Value"]),
+    maxiter=1000,  # You can increase from 1000 if needed
+    seed=42,
+)
 
-# best_params = result.x
-# print("Best params (t0, Dt, K):", best_params)
-# print("Objective function value:", result.fun)
+best_params = result.x
+print("Best params (t0, Dt, K):", best_params)
+print("Objective function value:", result.fun)
 
 
 def multi_start_fit(n_starts=10):
@@ -231,9 +232,9 @@ def multi_start_fit(n_starts=10):
     return best_params, best_val
 
 
-params, val = multi_start_fit(n_starts=100)
-print("Best (A, B, r):", params)
-print("Best objective:", val)
+# params, val = multi_start_fit(n_starts=100)
+# print("Best (A, B, r):", params)
+# print("Best objective:", val)
 
 # Plot
 x_line = np.arange(
@@ -252,12 +253,12 @@ plt.scatter(
     s=40,
 )
 
-# t0 = result["x"][0]
-# Dt = result["x"][1]
-# k = result["x"][2]
-t0 = params[0]
-Dt = params[1]
-k = params[2]
+t0 = result["x"][0]
+Dt = result["x"][1]
+k = result["x"][2]
+# t0 = params[0]
+# Dt = params[1]
+# k = params[2]
 y_line_log = FPLogValue_with_scaling(x_line, t0, Dt, k)
 y_pred = FPLogValue_with_scaling(group_data["Year"], t0, Dt, k)
 r2_log, r2adj_log = calculate_adjusted_r2(group_data["Value"], y_pred, n_params=3)
