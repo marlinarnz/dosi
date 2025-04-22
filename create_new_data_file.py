@@ -432,7 +432,11 @@ adjusted_dfs.append(market_share_df)
 innovation_name = "car ownership"
 market_share_df = adoptions_df[
     (adoptions_df["Innovation Name"] == innovation_name)
-    & (adoptions_df["Metric"] == "cars per 1,000 inhabitants")
+    & (
+        adoptions_df["Metric"].isin(
+            ["cars per 1,000 inhabitants", "cars per 1000 inhabitants"]
+        )
+    )
 ].copy()
 ms_check_empty(market_share_df, innovation_name)
 market_share_df["Value"] = market_share_df["Value"] / 1e3
