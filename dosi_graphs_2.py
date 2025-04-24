@@ -316,12 +316,15 @@ def objective(params, t, y):
     return np.sum((y - y_pred) ** 2)
 
 
-def alternative_log_fit(x, y):
-    bounds = [
+def alternative_log_fit(
+    x,
+    y,
+    bounds=[
         (1000, 3000),  # t0
         (-500, 500),  # Dt
         (1e-10, 1),  # s or K (asymptote)
-    ]
+    ],
+):
     result = differential_evolution(
         objective,
         bounds=bounds,
@@ -403,6 +406,8 @@ for i in range(len(grouped)):
 
     sorted_index = sorted_indices[i]
 
+    code = codes[sorted_index]
+
     group_name, group_data = grouped_as_list[sorted_index]
 
     group_data.sort_values(by=["Year"], inplace=True)
@@ -470,6 +475,13 @@ for i in range(len(grouped)):
     if (group_data["Metric"].unique() == "market share") & (k > 1):
         t0, Dt, k = alternative_log_fit(group_data["Year"], group_data["Value"])
 
+    if code == "ebi_net_1.1Ado_d333_m185":
+        t0, Dt, k = alternative_log_fit(
+            group_data["Year"],
+            group_data["Value"],
+            bounds=[(1000, 3000), (0.1, 500), (1e-10, 1)],
+        )
+
     y_line_log = FPLogValue_with_scaling(x_line, t0, Dt, k)
     y_pred = FPLogValue_with_scaling(group_data["Year"], t0, Dt, k)
     r2_log, r2adj_log = calculate_adjusted_r2(group_data["Value"], y_pred, n_params=3)
@@ -515,8 +527,6 @@ for i in range(len(grouped)):
         color="black",
         s=40,
     )
-
-    code = codes[sorted_index]
 
     # Try table on top:
 
