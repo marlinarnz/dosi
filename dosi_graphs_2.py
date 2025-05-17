@@ -13,11 +13,11 @@ from matplotlib.backends.backend_pdf import PdfPages
 
 from logfits_chatgpt_v1 import fit_logistic_3p
 
-VERSION = "v25"
-VERSION_FOR_FITS = "v25"
+VERSION = "v26"
+VERSION_FOR_FITS = "v26"
 VERSION_FOR_SUMMARY_READING = "v25"
-VERSION_FOR_METADATA = "v24"
-VERSION_FOR_DATA = "v24"
+VERSION_FOR_METADATA = "v25"
+VERSION_FOR_DATA = "v25"
 SMALL_SUBSET = False  # Do you only want a small subset for testing?
 REDO_FITS = True
 RENUMBER_METADATA_CODES = False
@@ -482,6 +482,13 @@ for i in range(len(grouped)):
             bounds=[(1000, 3000), (0.1, 500), (1e-10, 1)],
         )
 
+    if code == "sus_glo_1.1Ado_d336_m185":
+        t0, Dt, k = alternative_log_fit(
+            group_data["Year"],
+            group_data["Value"],
+            bounds=[(1000, 3000), (0.1, 500), (1e-10, 1)],
+        )
+
     y_line_log = FPLogValue_with_scaling(x_line, t0, Dt, k)
     y_pred = FPLogValue_with_scaling(group_data["Year"], t0, Dt, k)
     r2_log, r2adj_log = calculate_adjusted_r2(group_data["Value"], y_pred, n_params=3)
@@ -894,6 +901,7 @@ scoring_on_summary = reassign_indicator_numbers(
     [
         "% of 18-19yr age group holding a drivers licence, by gender",
         "% of 18-19yr age group in 2003 holding a drivers licence",
+        "share of teenagers with drivers licenses",
         "% of population holding a drivers licence, by gender=female",
         "% of population holding a drivers licence, by gender=male",
         "% of population holding a drivers licence, by age group 20-24",

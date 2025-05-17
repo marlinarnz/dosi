@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from matplotlib.table import Table
 from matplotlib.backends.backend_pdf import PdfPages
 
-VERSION = "v24"
+VERSION = "v25"
 # VERSION_FOR_METADATA = "v23"
 SMALL_SUBSET = False  # Do you only want a small subset for testing?
 RENUMBER_METADATA_CODES = False
@@ -445,6 +445,28 @@ metric_new = "market share"
 market_share_df = update_dictionaries(description_new, metric_new, market_share_df)
 adjusted_dfs.append(market_share_df)
 
+# Greg's request from 2025-05-10
+innovation_name = "car ownership"
+market_share_df = adoptions_df[
+    (adoptions_df["Spatial Scale"] == "Berlin")
+    & (adoptions_df["Innovation Name"] == innovation_name)
+    & (
+        adoptions_df["Metric"].isin(
+            ["cars per 1,000 inhabitants", "cars per 1000 inhabitants"]
+        )
+    )
+].copy()
+ms_check_empty(market_share_df, innovation_name)
+market_share_df["Value"] = market_share_df["Value"] / 1e3
+# Find the Year corresponding to the maximum Value
+max_value_year = market_share_df.loc[market_share_df["Value"].idxmax(), "Year"]
+# Remove rows where Year is greater than or equal to that Year
+market_share_df = market_share_df[market_share_df["Year"] >= max_value_year]
+description_new = "cars per person PARTIAL FROM MAX ONWARDS"
+metric_new = "market share"
+market_share_df = update_dictionaries(description_new, metric_new, market_share_df)
+adjusted_dfs.append(market_share_df)
+
 innovation_name = "teleworking"
 market_share_df = adoptions_df[
     (adoptions_df["Innovation Name"] == innovation_name)
@@ -522,12 +544,54 @@ market_share_df.loc[market_share_df["Spatial Scale"] == "The Netherlands", "Valu
     / market_share_df.loc[
         market_share_df["Spatial Scale"] == "The Netherlands", "Value_y"
     ]
-)
+).astype(float)
 description_new = "% trips by walking and biking"
 metric_new = "market share"
 market_share_df = update_dictionaries(description_new, metric_new, market_share_df)
 market_share_df = market_share_df[columns_to_keep]
 adjusted_dfs.append(market_share_df)
+
+
+# Request from Greg 2025-05-10
+updated_df = pd.concat(adjusted_dfs)
+adjusted_df = pd.concat(adjusted_dfs)[
+    (updated_df["Innovation Name"] == "active mobility")
+    & (updated_df["Spatial Scale"] == "Amsterdam")
+    & (updated_df["Indicator Number"] == "1.1")
+    & (
+        (
+            (
+                updated_df["Description"]
+                == "Modal share of all trips by residents (walk)"
+            )
+            & (updated_df["Metric"] == "% trips by walking")
+        )
+    )
+    & (updated_df["Year"] != 1930)
+].copy()
+description_new = "Modal share of all trips by residents (walk) EXCLUDING 1930"
+metric_new = "% trips by walking"
+adjusted_df = update_dictionaries(description_new, metric_new, adjusted_df)
+adjusted_dfs.append(adjusted_df)
+
+# Request from Greg 2025-05-10
+updated_df = pd.concat(adjusted_dfs)
+adjusted_df = pd.concat(adjusted_dfs)[
+    (updated_df["Innovation Name"] == "active mobility")
+    & (updated_df["Spatial Scale"] == "Amsterdam")
+    & (updated_df["Indicator Number"] == "1.1")
+    & (
+        (
+            (updated_df["Description"] == "% trips by walking and biking")
+            & (updated_df["Metric"] == "market share")
+        )
+    )
+    & (updated_df["Year"] != 1930)
+].copy()
+description_new = "% trips by walking and biking EXCLUDING 1930"
+metric_new = "market share"
+adjusted_df = update_dictionaries(description_new, metric_new, adjusted_df)
+adjusted_dfs.append(adjusted_df)
 
 
 innovation_name = "e-bikes"  # Part one, no adjustment needed
@@ -571,9 +635,9 @@ market_share_df = adoptions_df[
     (adoptions_df["Innovation Name"] == innovation_name)
     & (
         (
-            (adoptions_df["Metric"] == "% of <=19 yr olds")
+            (adoptions_df["Metric"].isin(["% of <=19 yr olds"]))
             & (adoptions_df["Spatial Scale"].isin(["US", "Washington DC"]))
-            & (adoptions_df["Indicator Number"] == "3.2")
+            & (adoptions_df["Indicator Number"] == "1.1")
         )
         | (
             (
@@ -586,7 +650,6 @@ market_share_df = adoptions_df[
 ].copy()
 ms_check_empty(market_share_df, innovation_name)
 description_new = "share of teenagers with drivers licenses"
-metric_new = "market share"
 market_share_df = update_dictionaries(description_new, metric_new, market_share_df)
 adjusted_dfs.append(market_share_df)
 
@@ -704,11 +767,11 @@ market_share_df = update_dictionaries(description_new, metric_new, market_share_
 adjusted_dfs.append(market_share_df)
 
 
-innovation_name = "passive building retrofits"
+innovation_name = "passive buildings"
 market_share_df = adoptions_df[
     (adoptions_df["Innovation Name"] == innovation_name)
-    & (adoptions_df["Description"].isin(["renovation"]))
-    & (adoptions_df["Metric"].isin(["number of buildings"]))
+    & (adoptions_df["Description"].isin(["passive retrofits"]))
+    & (adoptions_df["Metric"].isin(["# of retrofitted units"]))
 ].copy()
 market_share_df = market_share_df.merge(
     market_share_indicators[
@@ -820,12 +883,82 @@ market_share_df = market_share_df[columns_to_keep]
 adjusted_dfs.append(market_share_df)
 
 
+# Request from Greg 2025-05-10 to add in new series based on aggregated ragions
+# function from DeepSeek
+def add_aggregated_rows(
+    df,
+    aggregation_mapping,
+    group_cols=["Year"],
+    agg_col="Value",
+    spatial_scale_col="Spatial Scale",
+):
+    """
+    Adds aggregated rows to a DataFrame based on specified groupings of spatial scales
+
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    aggregation_mapping (dict): Dictionary mapping {new_category: [component_categories]}
+    group_cols (list): Columns to group by when aggregating (default: ['Year'])
+    agg_col (str): Column name to aggregate (default: 'Value')
+    spatial_scale_col (str): Column name containing spatial categories (default: 'Spatial Scale')
+
+    Returns:
+    pd.DataFrame: DataFrame with original rows plus aggregated rows
+    """
+
+    # Validate inputs
+    if not isinstance(aggregation_mapping, dict):
+        raise ValueError("aggregation_mapping must be a dictionary")
+
+    # Create list to hold aggregated DataFrames
+    aggregated_dfs = []
+
+    # Get all columns except group columns, agg column, and spatial scale column
+    other_cols = [
+        col
+        for col in df.columns
+        if col not in group_cols + [agg_col, spatial_scale_col]
+    ]
+
+    for agg_name, components in aggregation_mapping.items():
+        # Filter rows for current components
+        mask = df[spatial_scale_col].isin(components)
+        filtered_df = df[mask]
+
+        if filtered_df.empty:
+            continue
+
+        # Create aggregation dictionary
+        agg_dict = {agg_col: "sum", **{col: "first" for col in other_cols}}
+
+        # Group and aggregate
+        grouped = filtered_df.groupby(group_cols, as_index=False).agg(agg_dict)
+
+        # Add aggregated spatial scale name
+        grouped[spatial_scale_col] = agg_name
+
+        # Maintain original column order
+        grouped = grouped[df.columns.tolist()]
+
+        aggregated_dfs.append(grouped)
+
+    # Combine original DF with all aggregated rows
+    return pd.concat([df] + aggregated_dfs, ignore_index=True)
+
+
 innovation_name = "firm ESG reporting"
-market_share_df = adoptions_df[
-    (adoptions_df["Innovation Name"] == innovation_name)
-    & (adoptions_df["Description"].isin(["Voluntary adoption of GRI reporting"]))
-    & (adoptions_df["Metric"].isin(["# of companies"]))
-].copy()
+market_share_df = add_aggregated_rows(
+    df=adoptions_df[
+        (adoptions_df["Innovation Name"] == innovation_name)
+        & (adoptions_df["Description"].isin(["Voluntary adoption of GRI reporting"]))
+        & (adoptions_df["Metric"].isin(["# of companies"]))
+    ].copy(),
+    aggregation_mapping={
+        "Asia-Pacific": ["Asia", "Oceania"],
+        "Americas": ["North America", "LatinAmericaCarib"],
+        "Middle East & Africa": ["Africa"],
+    },
+)
 market_share_df = market_share_df.merge(
     market_share_indicators[
         (market_share_indicators["Indicator"] == "# of firms")

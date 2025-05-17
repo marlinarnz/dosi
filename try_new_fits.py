@@ -124,7 +124,8 @@ grouped_as_list = list(grouped)
 
 # Better logistic fits for problem data
 problem_fits_codes = [
-    "ene_net_1.1Ado_d347_m185",
+    # "ebi_net_1.1Ado_d333_m185",
+    "sus_glo_1.1Ado_d336_m185"
     # "low_ger_1.1Ado_d329_m185",
     # "org_uki_1.1Ado_d163_m140",
     # "mic_ban_1.1Ado_d285_m173",
