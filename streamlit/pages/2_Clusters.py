@@ -288,7 +288,7 @@ def build_plot(selected_innovations, early_only: bool) -> go.Figure:
                 name=code,  # Legend label
                 showlegend=False,
                 line=dict(color=color, width=2),
-                hovertemplate=f"{innovation_name} ({region_name})<br>{code}<br>Year=%{{x:.0f}}<br>Value=%{{y:.2f}}<extra></extra>",  # Custom tooltip
+                hovertemplate=f"{innovation_name} ({region_name})<br>{code}<br>Year=%{{x:.0f}}<br>Value=%{{y:.2f}}<br>Dt={{Dt:.0f}} t0={{t0:.0f}} K={{K:.2f}}<extra></extra>",  # Custom tooltip
             )
         )
 

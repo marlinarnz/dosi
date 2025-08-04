@@ -1,6 +1,6 @@
 import streamlit as st
 
-st.set_page_config(page_title="Multi-Page Demo", layout="wide")
+st.set_page_config(page_title="PosTip Data Diagnotistics", layout="wide")
 st.write("# 👋 Welcome")
 
 st.markdown(
