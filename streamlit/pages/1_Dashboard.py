@@ -1,4 +1,4 @@
 # Placeholder page – flesh this out whenever you’re ready
 import streamlit as st
 
-st.title("Dashboard (work in progress)")
+st.title("Within innovations")

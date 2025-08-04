@@ -14,17 +14,24 @@ import nbformat
 import plotly.express as px
 import plotly.graph_objects as go
 
+from pathlib import Path
+
+# Get the path of the current script (inside streamlit/)
+CURRENT_DIR = Path(__file__).parent
+
 VERSION_FOR_DATA = "v25"
 VERSION_FOR_FITPARAMETERS = "v26"
 VERSION_FOR_METADATA = "v25"
 YEAR_PADDING_FOR_PLOTTING = 10
 
-PATH = "data"
-fn_data = f"{PATH}/adjusted_datasets_{VERSION_FOR_DATA}.csv"
-fn_summary = f"""{PATH}/summary_table_{VERSION_FOR_FITPARAMETERS}.csv"""
-fn_clusters = f"""{PATH}/PosTip_Clusters.csv"""  # Summary file by Charlie
-fn_early = f"""{PATH}/EarlyAdopterRegions_perInnovation_21March.csv"""  # Early Adopting regions
-fn_metadata = f"{PATH}/metadata_master_{VERSION_FOR_METADATA}.xlsx"
+PATH = "../data"
+fn_data = CURRENT_DIR / PATH / f"adjusted_datasets_{VERSION_FOR_DATA}.csv"
+fn_summary = CURRENT_DIR / PATH / f"""summary_table_{VERSION_FOR_FITPARAMETERS}.csv"""
+fn_clusters = CURRENT_DIR / PATH / "PosTip_Clusters.csv"  # Summary file by Charlie
+fn_early = (
+    CURRENT_DIR / PATH / "EarlyAdopterRegions_perInnovation_21March.csv"
+)  # Early Adopting regions
+fn_metadata = CURRENT_DIR / PATH / f"metadata_master_{VERSION_FOR_METADATA}.xlsx"
 
 dosi_df = pd.read_csv(fn_data, converters={"Indicator Number": str})
 dosi_df["Value"] = pd.to_numeric(dosi_df["Value"], errors="coerce")
