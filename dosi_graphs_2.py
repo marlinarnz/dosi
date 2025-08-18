@@ -13,11 +13,11 @@ from matplotlib.backends.backend_pdf import PdfPages
 
 from logfits_chatgpt_v1 import fit_logistic_3p
 
-VERSION = "v26"
+VERSION = "v27"
 VERSION_FOR_FITS = "v26"
 VERSION_FOR_SUMMARY_READING = "v25"
 VERSION_FOR_METADATA = "v25"
-VERSION_FOR_DATA = "v25"
+VERSION_FOR_DATA = "v26"
 SMALL_SUBSET = False  # Do you only want a small subset for testing?
 REDO_FITS = True
 RENUMBER_METADATA_CODES = False
@@ -472,6 +472,8 @@ for i in range(len(grouped)):
     Dt = results_filtered["Dt"].values[0]
     k = results_filtered["K"].values[0]
 
+    # Nudges!
+
     if (group_data["Metric"].unique() == "market share") & (k > 1):
         t0, Dt, k = alternative_log_fit(group_data["Year"], group_data["Value"])
 
@@ -487,6 +489,20 @@ for i in range(len(grouped)):
             group_data["Year"],
             group_data["Value"],
             bounds=[(1000, 3000), (0.1, 500), (1e-10, 1)],
+        )
+
+    if code == "crz_fra_1.1Ado_d328_m185":
+        t0, Dt, k = alternative_log_fit(
+            group_data["Year"],
+            group_data["Value"],
+            bounds=[(500, 3000), (200, 800), (0.5, 1)],
+        )
+
+    if code == "foo_usa_1.1Ado_d337_m185":
+        t0, Dt, k = alternative_log_fit(
+            group_data["Year"],
+            group_data["Value"],
+            bounds=[(2000, 2030), (0.1, 20), (0.5, 1)],
         )
 
     y_line_log = FPLogValue_with_scaling(x_line, t0, Dt, k)

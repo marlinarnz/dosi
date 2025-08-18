@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from matplotlib.table import Table
 from matplotlib.backends.backend_pdf import PdfPages
 
-VERSION = "v25"
+VERSION = "v26"
 # VERSION_FOR_METADATA = "v23"
 SMALL_SUBSET = False  # Do you only want a small subset for testing?
 RENUMBER_METADATA_CODES = False
@@ -421,7 +421,7 @@ market_share_df = market_share_df.merge(
     right_on=["Country", "Year"],
     how="left",
 )
-market_share_df["Value"] = market_share_df["Value_y"]
+market_share_df["Value"] = market_share_df["Value_x"] * 1e6 / market_share_df["Value_y"]
 description_new = "share of pkm by rail"
 metric_new = "market share"
 market_share_df = market_share_df[columns_to_keep]
