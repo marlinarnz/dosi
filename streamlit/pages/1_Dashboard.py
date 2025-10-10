@@ -116,6 +116,9 @@ dosi_df["Code"] = dosi_df[
         "Metric Code",
     ]
 ].agg("_".join, axis=1)
+dosi_df["descriptionmetric"] = dosi_df[["Description", "Metric"]].agg(
+    " / ".join, axis=1
+)
 
 innovation_names = dosi_df["Innovation Name"].unique().tolist()
 innovation_names.sort()
@@ -194,13 +197,16 @@ NUMBER_OF_COLUMNS = 10  # Number of columns in the grid
 st.subheader("Indicators included:")
 cols = st.columns(NUMBER_OF_COLUMNS)
 feature_states = {}
+descriptionmetric_states = {}
 
 for idx, label in enumerate(indicator_codes):
     with cols[idx % NUMBER_OF_COLUMNS]:
+        descriptionmetric_states[label] = []
         feature_states[label] = st.checkbox(
             label + " " + metadata["Indicator Name"][label],
             value=label in innovation_df["Indicator Number"].unique().tolist(),
         )
+
 
 innovation_df_for_plotting = innovation_df[
     innovation_df["Indicator Number"].isin([k for k, v in feature_states.items() if v])
