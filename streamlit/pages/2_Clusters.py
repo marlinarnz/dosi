@@ -180,7 +180,17 @@ for idx, label in enumerate(ALL_INNOVATION_CODES):
 # ──────────────────────────────────────────────────────────────
 # 3.  TOGGLE  ──────────────────────────────────────────────────
 # ----------------------------------------------------------------
-EARLY_ADOPTING_REGIONS_ONLY = st.toggle("Show only early-adopting regions", value=True)
+early_adopting_regions_only = st.toggle("Show only early-adopting regions", value=True)
+
+country_selection = st.multiselect(
+    "OR Select regions to include [toggle above to the left]",
+    options=dosi_df[
+        dosi_df["Innovation Code"].isin(
+            [label for label, checked in feature_states.items() if checked]
+        )
+    ]["Region Code"].unique(),
+    default=dosi_df["Region Code"].unique()[0],
+)
 
 # Now within clusters, only adoption
 
@@ -188,7 +198,9 @@ EARLY_ADOPTING_REGIONS_ONLY = st.toggle("Show only early-adopting regions", valu
 # ──────────────────────────────────────────────────────────────
 # 4.  PLOTLY FIGURE  ───────────────────────────────────────────
 # ----------------------------------------------------------------
-def build_plot(selected_innovations, early_only: bool) -> go.Figure:
+def build_plot(
+    selected_innovations, early_only: bool, countries_selected: list
+) -> go.Figure:
     """Dummy plot builder – drop in your real logic here."""
 
     cluster_innovations_df = dosi_df[
@@ -229,6 +241,22 @@ def build_plot(selected_innovations, early_only: bool) -> go.Figure:
                 summary_df["Code"].str.split("_").str[1]
                 == summary_df["Code"].str.split("_").str[0].map(early_dict)
             )
+            & (summary_df["Indicator Number"] == "1.1")
+            & (summary_df["Metric"] == "market share")
+        ]
+
+    else:
+
+        # Only the early adopting regions and market shares?
+        cluster_innovations_df = dosi_df[
+            (dosi_df["Innovation Code"].isin(selected_innovations))
+            & (dosi_df["Indicator Number"] == "1.1")
+            & (dosi_df["Region Code"].isin(countries_selected))
+            & (dosi_df["Metric"] == "market share")
+        ].copy()
+        cluster_innovations_summary_df = summary_df[
+            (summary_df["Code"].str.split("_").str[0].isin(selected_innovations))
+            & (summary_df["Code"].str.split("_").str[1].isin(countries_selected))
             & (summary_df["Indicator Number"] == "1.1")
             & (summary_df["Metric"] == "market share")
         ]
@@ -295,7 +323,7 @@ def build_plot(selected_innovations, early_only: bool) -> go.Figure:
         fig.update_layout(
             title="Cluster "
             + cluster
-            + (" (Early Adopting Regions Only)" if EARLY_ADOPTING_REGIONS_ONLY else ""),
+            + (" (Early Adopting Regions Only)" if early_adopting_regions_only else ""),
             xaxis_title="X Axis",
             yaxis_title="Y Axis",
             # hovermode='x unified'
@@ -328,6 +356,7 @@ fig = build_plot(
     selected_innovations=[
         label for label, checked in feature_states.items() if checked
     ],
-    early_only=EARLY_ADOPTING_REGIONS_ONLY,
+    early_only=early_adopting_regions_only,
+    countries_selected=country_selection,
 )
 st.plotly_chart(fig, use_container_width=True)
