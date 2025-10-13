@@ -1,5 +1,17 @@
 import pandas as pd
 
+from pathlib import Path
+
+import csv
+
+# Get the path of the current script (inside streamlit/)
+CURRENT_DIR = Path(__file__).parent
+
+VERSION_FOR_METADATA = "v25_withhatch_2"
+
+PATH = "streamlit/data"
+
+
 ONEDRIVE_PATH = (
     "/mnt/c/Users/simon.destercke/IIASA/EDITS - FT25-1_PosTip/Data/HATCH files/"
 )
@@ -165,6 +177,41 @@ if __name__ == "__main__":
     early_adopters = list(
         set(early_dict[tech] for tech in technologies_in_clusters if tech in early_dict)
     )
+
+    print(early_dict)
+    print(early_adopters)
+
+    # change the keys in early_dict to those with hatch_mapping
+    hatch_mapping = pd.read_csv("hatch_mapping.csv")
+    hatch_mapping = hatch_mapping.map(lambda x: x.strip() if isinstance(x, str) else x)
+    hatch_mapping_dict = dict(
+        zip(
+            hatch_mapping["Early dict value (ISO3)"],
+            hatch_mapping["Abbrev"],
+        )
+    )
+
+    early_dict = {
+        tech: hatch_mapping_dict.get(country, country)
+        for tech, country in early_dict.items()
+        if tech in technologies_in_clusters
+    }
+
+    print(early_dict)
+
+    fn_metadata = CURRENT_DIR / PATH / f"metadata_master_{VERSION_FOR_METADATA}.xlsx"
+
+    key_map_df = pd.read_excel(fn_metadata, usecols="A,D")
+    key_map = dict(zip(key_map_df.iloc[:, 0], key_map_df.iloc[:, 1]))
+
+    print(key_map)
+
+    new_early = {key_map[k.lower()]: v for k, v in early_dict.items()}
+
+    with open("streamlit/data/hatch_early_dict.csv", "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["innovation", "EA region"])  # header row (optional)
+        writer.writerows(new_early.items())
 
     # Outputs
     # print("Technologies:", technologies_in_clusters)

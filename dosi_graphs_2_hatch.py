@@ -16,7 +16,7 @@ from logfits_chatgpt_v1 import fit_logistic_3p
 VERSION = "HATCH_v27"
 VERSION_FOR_FITS = "v26"
 VERSION_FOR_SUMMARY_READING = "v25"
-VERSION_FOR_METADATA = "v25"
+VERSION_FOR_METADATA = "v25_withhatch_2"
 VERSION_FOR_DATA = "v26"
 SMALL_SUBSET = False  # Do you only want a small subset for testing?
 REDO_FITS = True

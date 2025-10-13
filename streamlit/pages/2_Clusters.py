@@ -16,24 +16,71 @@ import plotly.graph_objects as go
 
 from pathlib import Path
 
+hatch_clusters = {
+    "sufficiency": [
+        "Electric Bicycles",  # Ebikes
+        "Solar Photovoltaic",  # solar PV
+    ],
+    "digital": [
+        "Cellphones",  # Cellphones
+        "Home Computers",  # home computer
+        "Household Internet Access",  # internet access
+        "Microcomputers",  # microcomputers
+        "Podcasting",  # podcasting
+        "Real-Time Gross Settlement Adoption",  # realtime gross settlement
+        "Social Media Usage",  # social media usage
+    ],
+    "consume": [
+        "Cable TV",  # Cable TV
+        "Dishwashers",  # Dishwashers
+        "Electric Bicycles",  # Ebikes
+        "Home Air Conditioning",  # home AC
+        "Laundry Dryers",  # laundry dryers
+        "Microwaves",  # microwave oven
+        "Television",  # TV
+        "Washing Machines",  # wash machines
+    ],
+    "green growth": [
+        "Nox Pollution Controls (Boilers)",  # NOx pollution control
+        "Offshore Wind Energy",  # offshore wind
+        "Onshore Wind Energy",  # onshore wind
+        "Solar Photovoltaic",  # solar PV
+        "Wet Flue Gas Desulfurization Systems",  # FGD
+    ],
+    "health": ["Electric Bicycles"],  # Ebikes (as given)
+}
+
 # Get the path of the current script (inside streamlit/)
 CURRENT_DIR = Path(__file__).parent
 
 VERSION_FOR_DATA = "v25"
 VERSION_FOR_FITPARAMETERS = "v26"
-VERSION_FOR_METADATA = "v25"
+VERSION_FOR_METADATA = "v25_withhatch_2"  # "v25" #
 YEAR_PADDING_FOR_PLOTTING = 10
 
 PATH = "../data"
+ONEDRIVE_PATH = (
+    "/mnt/c/Users/simon.destercke/IIASA/EDITS - FT25-1_PosTip/Data/HATCH files/"
+)
+
 fn_data = CURRENT_DIR / PATH / f"adjusted_datasets_{VERSION_FOR_DATA}.csv"
+
+fn_data_hatch = CURRENT_DIR / PATH / f"hatch_data_dosi_format.csv"
 fn_summary = CURRENT_DIR / PATH / f"""summary_table_{VERSION_FOR_FITPARAMETERS}.csv"""
+fn_summary_hatch = CURRENT_DIR / PATH / f"""summary_table_HATCH_v27.csv"""
 fn_clusters = CURRENT_DIR / PATH / "PosTip_Clusters.csv"  # Summary file by Charlie
 fn_early = (
     CURRENT_DIR / PATH / "EarlyAdopterRegions_perInnovation_21March.csv"
 )  # Early Adopting regions
+fn_early_hatch = CURRENT_DIR / PATH / "hatch_early_dict.csv"  # Early Adopting regions
 fn_metadata = CURRENT_DIR / PATH / f"metadata_master_{VERSION_FOR_METADATA}.xlsx"
 
-dosi_df = pd.read_csv(fn_data, converters={"Indicator Number": str})
+dosi_df = pd.concat(
+    [
+        pd.read_csv(fn_data, converters={"Indicator Number": str}),
+        pd.read_csv(fn_data_hatch, converters={"Indicator Number": str}),
+    ]
+)
 dosi_df["Value"] = pd.to_numeric(dosi_df["Value"], errors="coerce")
 dosi_df = dosi_df.dropna(subset=["Value"])
 
@@ -41,25 +88,16 @@ dosi_df = dosi_df.dropna(subset=["Value"])
 dosi_df["Spatial Scale"] = dosi_df["Spatial Scale"].str.rstrip()
 dosi_df["Innovation Name"] = dosi_df["Innovation Name"].str.rstrip()
 
-summary_df = pd.read_csv(fn_summary, converters={"Indicator Number": str})
-
-clusters_df = pd.read_csv(
-    fn_clusters,
-    skiprows=15,
-    nrows=28,
-    usecols=[8, 35, 36, 37, 38, 39],
-    encoding="ISO-8859-1",
-    header=0,
+summary_df = pd.concat(
+    [
+        pd.read_csv(fn_summary, converters={"Indicator Number": str}),
+        pd.read_csv(fn_summary_hatch, converters={"Indicator Number": str}),
+    ]
 )
-clusters_df.rename(
-    columns={clusters_df.columns[0]: "innovation code"}, inplace=True
-)  # If there is an error here, then there may be a column reference error, e.g. the first column of the csv file is empty and pd.red_csv skips it
-clusters_dict = {
-    col: clusters_df.loc[~clusters_df[col].isna(), "innovation code"].tolist()
-    for col in clusters_df.columns[1:]
-}
 
-early_df = pd.read_csv(fn_early, usecols=[0, 1])
+early_df = pd.concat(
+    [pd.read_csv(fn_early, usecols=[0, 1]), pd.read_csv(fn_early_hatch, usecols=[0, 1])]
+)
 early_dict = dict(zip(early_df.iloc[:, 0], early_df.iloc[:, 1]))
 
 # Metadata / codes
@@ -90,6 +128,31 @@ for key, nested_dict in metadata.items():
             k.lower() if isinstance(k, str) else k: v for k, v in nested_dict.items()
         }
 
+clusters_df = pd.read_csv(
+    fn_clusters,
+    skiprows=15,
+    nrows=28,
+    usecols=[8, 35, 36, 37, 38, 39],
+    encoding="ISO-8859-1",
+    header=0,
+)
+clusters_df.rename(
+    columns={clusters_df.columns[0]: "innovation code"}, inplace=True
+)  # If there is an error here, then there may be a column reference error, e.g. the first column of the csv file is empty and pd.red_csv skips it
+
+# remove first row of clusters_d
+clusters_df.drop(index=clusters_df.index[0], axis=0, inplace=True)
+
+clusters_dict = {
+    col: clusters_df.loc[~clusters_df[col].isna(), "innovation code"].tolist()
+    for col in clusters_df.columns[1:]
+}
+
+for cluster, technologies in hatch_clusters.items():
+    for technology in technologies:
+        clusters_dict[cluster].append(metadata["Innovation Name"][technology.lower()])
+
+
 # Attach codes to data file
 
 dosi_df["Innovation Code"] = (
@@ -106,6 +169,7 @@ dosi_df["Description Code"] = (
     dosi_df["Description"].str.lower().map(metadata["Description"])
 )
 dosi_df["Metric Code"] = dosi_df["Metric"].str.lower().map(metadata["Metric"])
+
 dosi_df["Code"] = dosi_df[
     [
         "Innovation Code",
@@ -189,7 +253,11 @@ country_selection = st.multiselect(
             [label for label, checked in feature_states.items() if checked]
         )
     ]["Region Code"].unique(),
-    default=dosi_df["Region Code"].unique()[0],
+    default=dosi_df[
+        dosi_df["Innovation Code"].isin(
+            [label for label, checked in feature_states.items() if checked]
+        )
+    ]["Region Code"].unique(),
 )
 
 # Now within clusters, only adoption
@@ -233,7 +301,10 @@ def build_plot(
             (dosi_df["Innovation Code"].isin(selected_innovations))
             & (dosi_df["Indicator Number"] == "1.1")
             & (dosi_df["Region Code"] == dosi_df["Early Adopter Code"])
-            & (dosi_df["Metric"] == "market share")
+            & (
+                (dosi_df["Metric"] == "market share")
+                | (dosi_df["File"] == "HATCH files")
+            )
         ].copy()
         cluster_innovations_summary_df = summary_df[
             (summary_df["Code"].str.split("_").str[0].isin(selected_innovations))
@@ -242,7 +313,10 @@ def build_plot(
                 == summary_df["Code"].str.split("_").str[0].map(early_dict)
             )
             & (summary_df["Indicator Number"] == "1.1")
-            & (summary_df["Metric"] == "market share")
+            & (
+                (summary_df["Metric"] == "market share")
+                | (summary_df["Category"].str.contains("h"))
+            )
         ]
 
     else:
@@ -252,13 +326,19 @@ def build_plot(
             (dosi_df["Innovation Code"].isin(selected_innovations))
             & (dosi_df["Indicator Number"] == "1.1")
             & (dosi_df["Region Code"].isin(countries_selected))
-            & (dosi_df["Metric"] == "market share")
+            & (
+                (dosi_df["Metric"] == "market share")
+                | (dosi_df["File"] == "HATCH files")
+            )
         ].copy()
         cluster_innovations_summary_df = summary_df[
             (summary_df["Code"].str.split("_").str[0].isin(selected_innovations))
             & (summary_df["Code"].str.split("_").str[1].isin(countries_selected))
             & (summary_df["Indicator Number"] == "1.1")
-            & (summary_df["Metric"] == "market share")
+            & (
+                (summary_df["Metric"] == "market share")
+                | (summary_df["Category"].str.contains("h"))
+            )
         ]
 
     year_min = cluster_innovations_df["Year"].min() - YEAR_PADDING_FOR_PLOTTING
