@@ -371,6 +371,9 @@ def build_plot(
             cluster_innovations_summary_df["Code"] == code
         ]["Spatial Scale"].iloc[0]
 
+        if Dt < 0:
+            print(f"Dt < 0 for {code}. Plotting mirrored curve.")
+
         # Assign color from the color cycle
         color = colors[
             i % len(colors)
@@ -380,7 +383,8 @@ def build_plot(
         fig.add_trace(
             go.Scatter(
                 x=dosi_df[dosi_df["Code"] == code]["Year"],
-                y=dosi_df[dosi_df["Code"] == code]["Value"] / K,
+                y=(1 / K if Dt < 0 else 0)
+                + (-1 if Dt < 0 else 1) * dosi_df[dosi_df["Code"] == code]["Value"] / K,
                 mode="markers",
                 name=f"{innovation_name} K-normalized data ({region_name})",  # This can be the same name to link with the line in the legend
                 hovertemplate=f"{innovation_name} ({region_name})<br>{code} Point<br>Year=%{{x:.0f}}<br>value=%{{y:.2f}}<extra></extra>",  # Custom tooltip
@@ -391,7 +395,10 @@ def build_plot(
         fig.add_trace(
             go.Scatter(
                 x=years_for_plotting,
-                y=FPLogValue_with_scaling(years_for_plotting, t0, Dt, K) / K,
+                y=(1 / K if Dt < 0 else 0)
+                + (-1 if Dt < 0 else 1)
+                * FPLogValue_with_scaling(years_for_plotting, t0, Dt, K)
+                / K,
                 mode="lines",
                 name=code,  # Legend label
                 showlegend=False,
@@ -412,7 +419,9 @@ def build_plot(
 
         # centroid of the scatter points
         x_centroid = dosi_df.loc[dosi_df["Code"] == code, "Year"].mean()
-        y_centroid = (dosi_df.loc[dosi_df["Code"] == code, "Value"] / K).mean()
+        y_centroid = (1 / K if Dt < 0 else 0) + (-1 if Dt < 0 else 1) * (
+            dosi_df.loc[dosi_df["Code"] == code, "Value"] / K
+        ).mean()
 
         fig.add_annotation(
             x=x_centroid,
