@@ -370,6 +370,12 @@ def build_plot(
         region_name = cluster_innovations_summary_df[
             cluster_innovations_summary_df["Code"] == code
         ]["Spatial Scale"].iloc[0]
+        metric_name = cluster_innovations_summary_df[
+            cluster_innovations_summary_df["Code"] == code
+        ]["Metric"].iloc[0]
+        description_name = cluster_innovations_summary_df[
+            cluster_innovations_summary_df["Code"] == code
+        ]["Description"].iloc[0]
 
         if Dt < 0:
             print(f"Dt < 0 for {code}. Plotting mirrored curve.")
@@ -387,7 +393,7 @@ def build_plot(
                 + (-1 if Dt < 0 else 1) * dosi_df[dosi_df["Code"] == code]["Value"] / K,
                 mode="markers",
                 name=f"{innovation_name} K-normalized data ({region_name})",  # This can be the same name to link with the line in the legend
-                hovertemplate=f"{innovation_name} ({region_name})<br>{code} Point<br>Year=%{{x:.0f}}<br>value=%{{y:.2f}}<extra></extra>",  # Custom tooltip
+                hovertemplate=f"{innovation_name} ({region_name})<br>Description: {description_name}<br>Metric: {metric_name}<br>{code} Point<br>Year=%{{x:.0f}}<br>value=%{{y:.2f}}<extra></extra>",  # Custom tooltip
                 marker=dict(size=8, color=color),  # Same color for points as the line
             )
         )
