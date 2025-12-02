@@ -1,0 +1,81 @@
+            "n_data_points_beyond_min": n_data_points_beyond_min,  # CRITERIA_START
+            "suspected_reversal_up2down": int(
+                relative_distance_max_to_avg_year < DISTANCE_TO_MEAN_THRESHOLD
+            ),
+            "suspected_reversal_down2up": int(
+                relative_distance_min_to_avg_year < DISTANCE_TO_MEAN_THRESHOLD
+            ),
+            "at_least_one_big_jump": (
+                int((max(relative_changes) > 1) | (min(relative_changes) < -0.5))
+                if len(relative_changes) > 0
+                else None
+            ),
+            f"autocorr_l1": autocorr[1] if len(relative_changes) > 0 else None,
+            "all_values_less_than_or_equal_to_1": int(max_value <= 1),
+            "all_values_less_than_or_equal_to_100": int(max_value <= 100),
+            "C1_R2": "y" if r2_log > 0.7 else ("m" if r2_log > 0.3 else "n"),
+            "C2_threshold_non_zero_value_years": (
+                "y" if n_non_zero_data_points > 5 else ("m" if year_range > 10 else "n")
+            ),
+            "C3_pct_non_zero": (
+                "m" if n_non_zero_data_points / n_data_points < 0.1 else "y"
+            ),
+            f"C4_less_than_{PERCENT_JUMP_THRESHOLD}_jump_in_second_half": (
+                "m"
+                if (
+                    len(relative_changes) < 1
+                )  # Catch series with not enough data points to calculate relative changes
+                else (
+                    "y"
+                    if (
+                        max((relative_changes[int(len(relative_changes) / 2) :]))
+                        < PERCENT_JUMP_THRESHOLD / 100
+                    )
+                    else "m"
+                )
+            ),
+            f"C4_less_than_{PERCENT_FALL_THRESHOLD}_fall_in_second_half": (
+                "m"
+                if (
+                    len(relative_changes) < 1
+                )  # Catch series with not enough data points to calculate relative changes
+                else (
+                    "y"
+                    if (
+                        min((relative_changes[int(len(relative_changes) / 2) :]))
+                        > -PERCENT_FALL_THRESHOLD / 100
+                    )
+                    else "m"
+                )
+            ),
+            f"C4_combined_less_than_{PERCENT_FALL_THRESHOLD}_fall_and_{PERCENT_JUMP_THRESHOLD}_jump_in_second_half": (
+                "m"
+                if (
+                    len(relative_changes) < 1
+                )  # Catch series with not enough data points to calculate relative changes
+                else (
+                    "y"
+                    if (
+                        max((relative_changes[int(len(relative_changes) / 2) :]))
+                        < PERCENT_JUMP_THRESHOLD / 100
+                    )
+                    & (
+                        min((relative_changes[int(len(relative_changes) / 2) :]))
+                        > -PERCENT_FALL_THRESHOLD / 100
+                    )
+                    else "m"
+                )
+            ),
+            f"C5_volatility_autocorrelation_lag1_threshold_{AUTOCORRELATION_THRESHOLD:.2g}": (
+                "m"
+                if (
+                    len(relative_changes) < 1
+                )  # Catch series with not enough data points to calculate relative changes
+                else ("m" if autocorr[1] < AUTOCORRELATION_THRESHOLD else "y")
+            ),
+            "C6_{K_COVERAGE_THRESHOLD}_of_k_covered_by_data": (
+                "y"
+                if (max_value - min_value_non_zero) / k > K_COVERAGE_THRESHOLD
+                else "m"
+            ),
+            "C7_lin_r2": "y" if r2_lin > 0.3 else "m",  # CRITERIA_END

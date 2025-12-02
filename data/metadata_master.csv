@@ -1,0 +1,240 @@
+Innovation Name,code,,Spatial Scale,code,,Indicator Number,code,,Description,code,,Metric,code
+eating less meat,eat,,Africa,afr,,1.1,1.1Ado,,"""car sharing"" mention in books",d1,,#,m1
+organic food consumption,org,,Amsterdam,ams,,1.2,1.2For,,# new countries with passive buildings,d2,,# bikes per hundred households,m2
+mobesity,crz,,Asia,asi,,2.1,2.1Lea,,% households who can not afford a computer,d3,,# bikes per hundred households (highest 10% income),m3
+low-carbon long distance travel,low,,Austria,aus,,2.2,2.2Rel,,% households with a computer,d4,,# bikes per hundred households (lowest 10% income),m4
+car ownership,cro,,Bangladesh,ban,,2.3,2.3Rel,,% households with broadband internet connection (fixed or mobile),d5,,# bikes per hundred households (middle income groups),m5
+teleworking,tel,,Beijing,bei,,2.4,2.4Eas,,% of 18-19yr age group holding a drivers licence,d6,,# cigarettes,m6
+active mobility,act,,Belgium,bel,,2.5,2.5Var,,"% of 18-19yr age group holding a drivers licence, by gender",d7,,# communities,m7
+e-bikes,ebi,,Berlin,ber,,2.6,2.6Vis,,% of 18-19yr age group in 2003 holding a drivers licence,d8,,# companies,m8
+drivers licence,dri,,Brazil,bra,,2.7,2.7Gra,,% of GDP required to purchase 2000 cigarettes of the most sold brand,d9,,# cooperatives,m9
+downsizing,dow,,California,cal,,2.8,2.8Tri,,% of S&P 500 companies with sustainability reporting (all standards),d10,,# countries,m10
+co-housing,coh,,Canada,can,,2.9,2.9Int,,% of age cohort 18 yrs in 1978 holding a drivers licence,d11,,# deals,m11
+sustainable fashion,sus,,Canton de Vaud (Switzerland),vau,,2.10,2.10Uni,,% of age cohort 18 yrs in 1988 holding a drivers licence,d12,,# drivers,m12
+food waste reduction,foo,,China,chi,,3.1,3.1Ado,,% of age cohort 18 yrs in 2008 holding a drivers licence,d13,,# members,m13
+e-commerce,eco,,Connecticut,con,,3.2,3.2Adc,,% of age cohort 18 yrs in 2019 holding a drivers licence,d14,,# mentions,m14
+passive building retrofits,pas,,Copenhagen,cop,,3.3,3.3Leg,,% of individuals who made purchases online (age 25-34),d15,,# million,m15
+car sharing,crs,,Denmark,den,,3.4,3.4Nic,,% of individuals who made purchases online (age 35-44),d16,,# of companies,m16
+microfinance,mic,,Estonia,est,,3.5,3.5Mar,,% of individuals who made purchases online (age 45-54),d17,,# people (estimated),m17
+solar leasing,sol,,EU,eun,,4.1,4.1Kso,,% of individuals who made purchases online (age 55-64),d18,,# projects,m18
+firm ESG reporting,fir,,Europe,eur,,4.2,4.2Kme,,% of individuals who made purchases online (age 65-74),d19,,# protest events,m19
+textile recycling,tex,,France,fra,,4.3,4.3Com,,% of individuals who made purchases online (high formal education),d20,,# publications,m20
+digital skills,dig,,Germany,ger,,4.4,4.4Pro,,% of individuals who made purchases online (medium formal education),d21,,# residents,m21
+e-government,ego,,Global,glo,,4.5,4.5Inf,,% of individuals who made purchases online (no or low formal education),d22,,# thousands,m22
+climate protest,cli,,global,glo,,4.6,4.6Sta,,% of individuals who made purchases online by (age 16-24),d23,,# thousands (only in post offices since 1970),m23
+energy community,ene,,Hamburg,ham,,,,,% of individuals who made purchases online by (age 25-34),d24,,# thousands (total),m24
+quitting smoking,qui,,Heidelberg,hei,,,,,% of individuals who made purchases online by (age 35-44),d25,,# vehicles,m25
+postage stamps,pos,,Hungary,hun,,,,,% of individuals who made purchases online by (age 45-54),d26,,$ (constant 2022),m26
+non-cash transactions,non,,India,ind,,,,,% of individuals who made purchases online by (age 55-64),d27,,$ million,m27
+,,,Ireland,ire,,,,,% of individuals who made purchases online by (age 65+),d28,,%,m28
+,,,Italy,ita,,,,,% of individuals who made purchases online by age (75 or more),d29,,% PV in new projects,m29
+,,,Japan,jap,,,,,% of population (residents) holding a drivers licence,d30,,% bikes sold,m30
+,,,LatinAmericaCarib,lam,,,,,% of population holding a drivers licence,d31,,% cash payments as % of all payments,m31
+,,,Latvia,lat,,,,,"% of population holding a drivers licence, by age group",d32,,% cash payments as total number of PoS payments,m32
+,,,Massachusetts,mas,,,,,"% of population holding a drivers licence, by gender",d33,,% cash payments as total number of in-store PoS payments,m33
+,,,Netherlands,net,,,,,% people who interacted online with public authorities (in the past year),d34,,% cash payments of total number of payments,m34
+,,,New Jersey,new,,,,,% people who obtained information from public authorities' web sites (in the past year),d35,,% distance,m35
+,,,Nigeria,nig,,,,,% people who submitted completed public authorities' forms online (in the past year),d36,,% female teleworkers of total female employment,m36
+,,,North America,nam,,,,,% poultry+pig in total meat consumption,d37,,% individuals,m37
+,,,Norway,nor,,,,,% red in total meat consumption,d38,,% kg/yr,m38
+,,,Oceania,oce,,,,,% third party owned systems ($100k-$150k),d39,,% male teleworkers of total male employment,m39
+,,,Poland,pol,,,,,% third party owned systems ($150k-$200k),d40,,% market share (sustainable apparel),m40
+,,,Portugal,por,,,,,% third party owned systems ($200k-$250k),d41,,% most recent in-store purchase in cash,m41
+,,,South Korea,sou,,,,,% third party owned systems ($50k-$100k),d42,,% of 16yr olds,m42
+,,,Stockholm,sto,,,,,% third party owned systems (<$50k),d43,,% of 17yr olds,m43
+,,,Sweden,swe,,,,,% third party owned systems (>$250k),d44,,% of 18-19yr age group,m44
+,,,Switzerland,swi,,,,,Account in financial institution,d45,,% of 18-19yr old females,m45
+,,,The Netherlands,net,,,,,All qualities MILK price,d46,,% of 18-19yr old males,m46
+,,,UK,uki,,,,,Annual Internet retail (B2C) sales value,d47,,% of 18-19yr olds,m47
+,,,United Kingdom,uki,,,,,Annual credit card and debit cards issued,d48,,% of 18-19yr olds in 2003 cohort,m48
+,,,United States,usa,,,,,Annual e-commerce sales value,d49,,% of 18yr olds,m49
+,,,US,usa,,,,,Annual production,d50,,% of 18yr olds in 1978,m50
+,,,USA,usa,,,,,Average cost of mile traveled by bus / car,d51,,% of 18yr olds in 1988,m51
+,,,Washington DC,was,,,,,Average distance travelled by e-bike per person,d52,,% of 18yr olds in 2008,m52
+,,,,,,,,,Average length of all new car sales / registrations (kg),d53,,% of 18yr olds in 2019,m53
+,,,,,,,,,Average loan balance per borrower / GNI per capita,d54,,% of 19yr olds,m54
+,,,,,,,,,Average total cost of mile traveled by bus,d55,,% of 20-24 yr olds,m55
+,,,,,,,,,Average total cost of mile traveled by car,d56,,% of 25-29 yr olds,m56
+,,,,,,,,,Average weight of all new car sales / registrations (kg),d57,,% of <=19 yr olds,m57
+,,,,,,,,,Average weight of all new sales / registrations (kg),d58,,% of Internet users,m58
+,,,,,,,,,"Berlin Car density: 
+2008-2024",d59,,% of adults,m59
+,,,,,,,,,Bicycle modal share,d60,,% of age 15+,m60
+,,,,,,,,,Bicycle ownership,d61,,% of age group,m61
+,,,,,,,,,Bicycle ownership among income groups,d62,,% of business,m62
+,,,,,,,,,Bike ownership,d63,,% of companies,m63
+,,,,,,,,,Building Energy Rating issuances,d64,,% of education group,m64
+,,,,,,,,,Businesses receiving orders through the Internet,d65,,% of female population,m65
+,,,,,,,,,Businesses with a web presence,d66,,% of households,m66
+,,,,,,,,,Cigarette consumption per smoker per day,d67,,% of individuals,m67
+,,,,,,,,,Clients below poverty line,d68,,% of internet users,m68
+,,,,,,,,,Conventional EGGS price,d69,,% of licensed drivers,m69
+,,,,,,,,,Conventional MILK price,d70,,% of male population,m70
+,,,,,,,,,Costs of a standard letter,d71,,% of new online shoppers,m71
+,,,,,,,,,Count of participants at protest events related to climate,d72,,% of population,m72
+,,,,,,,,,Count of protest events related to climate,d73,,% of small firms (10-49 employees),m73
+,,,,,,,,,CumulativeStartups,d74,,% of total retail,m74
+,,,,,,,,,CumulativeStartups (2nd hand clothes),d75,,% of turnover,m75
+,,,,,,,,,CumulativeStartups (meat substitutes),d76,,% online shopping payments by credit or debit card,m76
+,,,,,,,,,CumulativeStartups (sust fashion),d77,,% online shopping payments by e-wallet,m77
+,,,,,,,,,Distance share by age group (12-17),d78,,% payments by cash (18-24 age group),m78
+,,,,,,,,,Distance share by age group (60-64),d79,,% payments by cash (25-54 age group),m79
+,,,,,,,,,Distance share by age group (70+),d80,,% payments by cash (55 and older age group),m80
+,,,,,,,,,Distribution of newly added e-commerce users by generation (Gen Others),d81,,"% payments by cash (income $100,000 – $149,999)",m81
+,,,,,,,,,Distribution of newly added e-commerce users by generation (Gen X),d82,,"% payments by cash (income $25,000 – $49,999)",m82
+,,,,,,,,,Distribution of newly added e-commerce users by generation (Gen Y),d83,,"% payments by cash (income $50,000 – $74,999)",m83
+,,,,,,,,,Distribution of newly added e-commerce users by generation (Gen Z),d84,,"% payments by cash (income $75,000 – $99,999)",m84
+,,,,,,,,,"E-Participation Index (three components of citizen involvement: e-information, e-consultation and e-decision-making; indexed 0-1)",d85,,"% payments by cash (income greater than $150,000)",m85
+,,,,,,,,,E-bike sales volumes,d86,,"% payments by cash (income less than $25,000)",m86
+,,,,,,,,,Employed persons (Age: 15-24) teleworking as a percentage of total employees age: 15-24 (%),d87,,% people,m87
+,,,,,,,,,Employed persons (Age: 25-49) teleworking as a percentage of total employees age: 25-49 (%),d88,,% teleworkers of total employment,m88
+,,,,,,,,,Employed persons (Age: 50+) teleworking as a percentage of total employees age: 50+ (%),d89,,% trips,m89
+,,,,,,,,,Employed persons teleworking as a % of total employment,d90,,% trips by bike,m90
+,,,,,,,,,Employed persons teleworking as a percentage of the total employment (%),d91,,% trips by walking,m91
+,,,,,,,,,Energy community installed capacity,d92,,% vehicles,m92
+,,,,,,,,,Energy community members,d93,,% wind in new projects,m93
+,,,,,,,,,Energy community projects,d94,,Billion Euros,m94
+,,,,,,,,,"Enterprises' total turnover from e-commerce sales (all activities - B2B, B2C, B2G)",d95,,Billion letters,m95
+,,,,,,,,,Exports of worn clothing,d96,,Billion p.km,m96
+,,,,,,,,,Female borrowers,d97,,Frequency,m97
+,,,,,,,,,Female employees teleworking as a % of total female employment,d98,,Frequency index to max=1,m98
+,,,,,,,,,Female>male share by age group (50-59),d99,,Index 0-1,m99
+,,,,,,,,,Female>male share by age group (60-64),d100,,Index 0-100,m100
+,,,,,,,,,Food waste generated in the US,d101,,"Indexed to ""digital payments"" (100=2022)",m101
+,,,,,,,,,Free range EGGS price,d102,,Indexed to max,m102
+,,,,,,,,,"Frequency of the word ""GRI"" in a corpus (books, internet)",d103,,Kg/year,m103
+,,,,,,,,,"Frequency of the word ""postage stamp"" in ngram corpus",d104,,Kg/yr,m104
+,,,,,,,,,Fuel efficiency (VMT per gallon),d105,,Letters per capita,m105
+,,,,,,,,,"Global edible food waste per capita, total",d106,,MW,m106
+,,,,,,,,,Gross lender loan portfolio,d107,,Million USD,m107
+,,,,,,,,,Hamburg Car density 2008-2024,d108,,Million euro,m108
+,,,,,,,,,Heidelberg Car density 1993-2024,d109,,Millions of US dollars,m109
+,,,,,,,,,"ICT service exports (% of service exports, BoP)",d110,,Millions of pounds,m110
+,,,,,,,,,Imports of worn clothing,d111,,No.,m111
+,,,,,,,,,Individuals using the Internet to purchase goods or services,d112,,Nominal cost (uninflated),m112
+,,,,,,,,,Internet sales as a percentage of total retail (B2C) sales (ratio) (%),d113,,Number (billion) of cashless transactions,m113
+,,,,,,,,,Internet sales as a percentage of total retail sales (ratio) (%),d114,,Number of locations for depositing daily cash takings,m114
+,,,,,,,,,Internet users buying online,d115,,Number of locations for withdrawing/using/depositing cash,m115
+,,,,,,,,,"Locations for deposit of daily takings, number per type of service",d116,,Percentage of employment within age group,m116
+,,,,,,,,,Male employees teleworking as a % of total male employment,d117,,Percentage of total employment,m117
+,,,,,,,,,Market share,d118,,Total number of POS terminals,m118
+,,,,,,,,,Market size of payments worldwide (also by world region),d119,,Total payments revenue (trillion $),m119
+,,,,,,,,,Meat supply/person,d120,,Total route-km,m120
+,,,,,,,,,Modal share of all trips by residents (bike),d121,,Trillion Korean Won,m121
+,,,,,,,,,Modal share of all trips by residents (walk),d122,,USD,m122
+,,,,,,,,,"Monetary value of e-commerce sales (all activities - B2B, B2C, B2G)",d123,,billion USD,m123
+,,,,,,,,,Motor fuel consumption,d124,,billions,m124
+,,,,,,,,,Net Revenue,d125,,bus/car cost per mile traveled,m125
+,,,,,,,,,NewStartups,d126,,"cars per 1,000 inhabitants",m126
+,,,,,,,,,NewStartups (2nd hand clothes),d127,,cars per 1000 inhabitants,m127
+,,,,,,,,,NewStartups (meat substitutes),d128,,cum. # companies,m128
+,,,,,,,,,NewStartups (sust fashion),d129,,floorspace,m129
+,,,,,,,,,No. of letters posted via Royal Mail (excludes parcels),d130,,ha,m130
+,,,,,,,,,Number of Post offices,d131,,index (1989=1),m131
+,,,,,,,,,Number of active borrowers,d132,,index (2022=100),m132
+,,,,,,,,,Number of bicycles,d133,,kW,m133
+,,,,,,,,,Number of cohousing communities,d134,,kg,m134
+,,,,,,,,,Number of digital payments worldwide (also by world region),d135,,kg per capita,m135
+,,,,,,,,,Number of employees,d136,,kg/capita,m136
+,,,,,,,,,Number of housing cooperatives in Canton de Vaud (Switzerland),d137,,kg/yr,m137
+,,,,,,,,,Number of housing units in cohousing communities,d138,,km,m138
+,,,,,,,,,"Number of locations for cash withdrawals, deposits of daily takings and over-the-counter payments",d139,,million,m139
+,,,,,,,,,Number of point of sale (PoS) terminals,d140,,million EUR,m140
+,,,,,,,,,Number of projects,d141,,million miles,m141
+,,,,,,,,,Number of residents living in cohousing communities,d142,,million passenger-km,m142
+,,,,,,,,,"Number of times ""Drivers license"" appears in books",d143,,million vehicles,m143
+,,,,,,,,,"Number of times ""cashless society"" appears in the Google Ngram corpus between 2005 and 2022",d144,,mm,m144
+,,,,,,,,,"Number of times ""cashless"" appears in the Google Ngram corpus between 2005 and 2022",d145,,number of A1 rated buildings certificates,m145
+,,,,,,,,,"Number of times ""digital payments"" appears in the Google Ngram corpus between 2005 and 2022",d146,,number of buildings,m146
+,,,,,,,,,Online Service Index (# services available online /180 total),d147,,number of units,m147
+,,,,,,,,,Online activity: banking,d148,,price (€c/kg),m148
+,,,,,,,,,Online activity: doing online course,d149,,sales price (€/100 pieces),m149
+,,,,,,,,,Online activity: emailing,d150,,total number of credit cards and debit cards in circulation,m150
+,,,,,,,,,Online activity: finding info,d151,,£,m151
+,,,,,,,,,Online activity: selling,d152,,€/person,m152
+,,,,,,,,,Online activity: social networks,d153,,,
+,,,,,,,,,Operating expense / loan portfolio,d154,,,
+,,,,,,,,,Organic EGGS price,d155,,,
+,,,,,,,,,Organic MILK price,d156,,,
+,,,,,,,,,Organic area (farmland) [ha],d157,,,
+,,,,,,,,,Organic area share of total farmland [%],d158,,,
+,,,,,,,,,Organic importers,d159,,,
+,,,,,,,,,Organic per capita consumption [€/person],d160,,,
+,,,,,,,,,Organic processors,d161,,,
+,,,,,,,,,Organic producers,d162,,,
+,,,,,,,,,Organic retail sales market size [million],d163,,,
+,,,,,,,,,Organic retail sales share [%],d164,,,
+,,,,,,,,,Owns a credit card,d165,,,
+,,,,,,,,,Owns a debit card,d166,,,
+,,,,,,,,,Passenger kilometres travelled by bike,d167,,,
+,,,,,,,,,Passenger kilometres travelled by foot,d168,,,
+,,,,,,,,,Passengers carried in railways,d169,,,
+,,,,,,,,,Percentage of people who paid cash for their last in-store purchase,d170,,,
+,,,,,,,,,PrivateEquityDeals,d171,,,
+,,,,,,,,,PrivateEquityDeals (2nd hand clothes),d172,,,
+,,,,,,,,,PrivateEquityDeals (meat substitutes),d173,,,
+,,,,,,,,,PrivateEquityDeals (sust fashion),d174,,,
+,,,,,,,,,PrivateEquityInvestment,d175,,,
+,,,,,,,,,PrivateEquityInvestment (2nd hand clothes),d176,,,
+,,,,,,,,,PrivateEquityInvestment (meat substitutes),d177,,,
+,,,,,,,,,PrivateEquityInvestment (sust fashion),d178,,,
+,,,,,,,,,Proportion of households with Internet access either via a fixed or mobile network,d179,,,
+,,,,,,,,,Recycled textiles as a share of textiles generation.,d180,,,
+,,,,,,,,,Revenue share of the sustainable apparel market,d181,,,
+,,,,,,,,,S&P 500 companies with sustainability reporting (all standards),d182,,,
+,,,,,,,,,Scientific publications on textile waste water treatment,d183,,,
+,,,,,,,,,Share of Internet users not buying online due to payment security concerns,d184,,,
+,,,,,,,,,Share of PV in new projects,d185,,,
+,,,,,,,,,Share of adults who smoke,d186,,,
+,,,,,,,,,Share of businesses receiving orders through the Internet,d187,,,
+,,,,,,,,,Share of cash and credit card payments by age group,d188,,,
+,,,,,,,,,Share of cash and credit card payments by income bracket,d189,,,
+,,,,,,,,,Share of payment instrument use for all payments,d190,,,
+,,,,,,,,,Share of people living in a small dwelling with high wellbeing,d191,,,
+,,,,,,,,,Share of trips,d192,,,
+,,,,,,,,,Share of wind in new projects,d193,,,
+,,,,,,,,,Small firms selling online,d194,,,
+,,,,,,,,,"Sustainability reporting by world's 250 largest companies by revenue (all standards, GRI, SASB, etc.)",d195,,,
+,,,,,,,,,Total e-bike manufacturing volumes,d196,,,
+,,,,,,,,,Total energy communities,d197,,,
+,,,,,,,,,Total number of vehicles registered,d198,,,
+,,,,,,,,,Total public road mileage,d199,,,
+,,,,,,,,,TotalFundraisingAmount,d200,,,
+,,,,,,,,,TotalFundraisingAmount (2nd hand clothes),d201,,,
+,,,,,,,,,TotalFundraisingAmount (meat substitutes),d202,,,
+,,,,,,,,,TotalFundraisingAmount (sust fashion),d203,,,
+,,,,,,,,,TotalFundraisingDeals,d204,,,
+,,,,,,,,,TotalFundraisingDeals (2nd hand clothes),d205,,,
+,,,,,,,,,TotalFundraisingDeals (meat substitutes),d206,,,
+,,,,,,,,,TotalFundraisingDeals (sust fashion),d207,,,
+,,,,,,,,,Traffic death rates,d208,,,
+,,,,,,,,,Value of the sustainable apparel market,d209,,,
+,,,,,,,,,Vegetable consumption per capita,d210,,,
+,,,,,,,,,Vehicle Miles of Travel (VMT),d211,,,
+,,,,,,,,,Voluntary adoption of GRI reporting,d212,,,
+,,,,,,,,,annualised Google search frequency (index 100=monthly max.),d213,,,
+,,,,,,,,,avg size of new project in year,d214,,,
+,,,,,,,,,cumulative # countries with passive buildings,d215,,,
+,,,,,,,,,free-floating cars - registered drivers,d216,,,
+,,,,,,,,,free-floating cars - registered vehicles,d217,,,
+,,,,,,,,,free-floating cars as % of all shared cars,d218,,,
+,,,,,,,,,max size of new project in year,d219,,,
+,,,,,,,,,min size of new project in year,d220,,,
+,,,,,,,,,most used e-commerce payment methods,d221,,,
+,,,,,,,,,new building,d222,,,
+,,,,,,,,,per capita beef consumption,d223,,,
+,,,,,,,,,per capita other meat consumption,d224,,,
+,,,,,,,,,per capita pig consumption,d225,,,
+,,,,,,,,,per capita poultry consumption,d226,,,
+,,,,,,,,,per capita sheep & goat consumption,d227,,,
+,,,,,,,,,per capita total meat consumption,d228,,,
+,,,,,,,,,proportion of cash payment methods to all payment methods (point of sale),d229,,,
+,,,,,,,,,proportion of cash payments to all payment types (in store PoS),d230,,,
+,,,,,,,,,proportion of cash payments to all payment types (total numbers),d231,,,
+,,,,,,,,,rail infrastructure,d232,,,
+,,,,,,,,,registered drivers,d233,,,
+,,,,,,,,,renovation,d234,,,
+,,,,,,,,,scientific publications,d235,,,
+,,,,,,,,,shared vehicles,d236,,,
+,,,,,,,,,station-based or combined - registered drivers,d237,,,
+,,,,,,,,,station-based or combined - registered vehicles,d238,,,

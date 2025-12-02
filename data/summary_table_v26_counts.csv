@@ -1,0 +1,9 @@
+,suspected_reversal_up2down,suspected_reversal_down2up,at_least_one_big_jump,C1_R2,C2_threshold_non_zero_value_years,C3_pct_non_zero,C4_less_than_250_jump_in_second_half,C4_less_than_80_fall_in_second_half,C4_combined_less_than_80_fall_and_250_jump_in_second_half,C5_volatility_autocorrelation_lag1_threshold_0.7,C6_{K_COVERAGE_THRESHOLD}_of_k_covered_by_data,C7_lin_r2,use_log,use_lin
+0,1234,1393,0,0,0,0,0,0,0,0,0,0,0,0
+0.0,0,0,698,0,0,0,0,0,0,0,0,0,0,0
+1,468,309,0,0,0,0,0,0,0,0,0,0,0,0
+1.0,0,0,944,0,0,0,0,0,0,0,0,0,0,0
+m,0,0,0,296,61,106,502,380,525,485,553,466,695,560
+n,0,0,0,195,209,0,0,0,0,0,0,0,341,209
+nan,0,0,60,0,0,0,0,0,0,0,0,0,0,0
+y,0,0,0,1211,1432,1596,1200,1322,1177,1217,1149,1236,666,933

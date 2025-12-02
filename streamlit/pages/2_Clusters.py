@@ -260,6 +260,8 @@ country_selection = st.multiselect(
     ]["Region Code"].unique(),
 )
 
+align_t0 = st.toggle("Align t0?", value=False)
+
 # Now within clusters, only adoption
 
 
@@ -388,7 +390,7 @@ def build_plot(
         # Add the points trace (same color as line)
         fig.add_trace(
             go.Scatter(
-                x=dosi_df[dosi_df["Code"] == code]["Year"],
+                x=dosi_df[dosi_df["Code"] == code]["Year"] - (t0 if align_t0 else 0),
                 y=(1 / K if Dt < 0 else 0)
                 + (-1 if Dt < 0 else 1) * dosi_df[dosi_df["Code"] == code]["Value"] / K,
                 mode="markers",
@@ -400,7 +402,7 @@ def build_plot(
 
         fig.add_trace(
             go.Scatter(
-                x=years_for_plotting,
+                x=years_for_plotting - (t0 if align_t0 else 0),
                 y=(1 / K if Dt < 0 else 0)
                 + (-1 if Dt < 0 else 1)
                 * FPLogValue_with_scaling(years_for_plotting, t0, Dt, K)
@@ -430,7 +432,7 @@ def build_plot(
         ).mean()
 
         fig.add_annotation(
-            x=x_centroid,
+            x=x_centroid - (t0 if align_t0 else 0),
             y=y_centroid,
             text=f"{innovation_name} ({region_name})",
             showarrow=False,
