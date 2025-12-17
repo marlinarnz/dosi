@@ -107,15 +107,15 @@ dosi_df["Description Code"] = (
     dosi_df["Description"].str.lower().map(metadata["Description"])
 )
 dosi_df["Metric Code"] = dosi_df["Metric"].str.lower().map(metadata["Metric"])
-dosi_df["Code"] = dosi_df[
-    [
-        "Innovation Code",
-        "Region Code",
-        "Indicator Code",
-        "Description Code",
-        "Metric Code",
-    ]
-].agg("_".join, axis=1)
+#dosi_df["Code"] = dosi_df[
+#    [
+#        "Innovation Code",
+#        "Region Code",
+#        "Indicator Code",
+#        "Description Code",
+#        "Metric Code",
+#    ]
+#].agg("_".join, axis=1)
 dosi_df["descriptionmetric"] = dosi_df[["Description", "Metric"]].agg(
     " / ".join, axis=1
 )

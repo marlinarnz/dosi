@@ -170,15 +170,15 @@ dosi_df["Description Code"] = (
 )
 dosi_df["Metric Code"] = dosi_df["Metric"].str.lower().map(metadata["Metric"])
 
-dosi_df["Code"] = dosi_df[
-    [
+code_cols = [
         "Innovation Code",
         "Region Code",
         "Indicator Code",
         "Description Code",
         "Metric Code",
-    ]
-].agg("_".join, axis=1)
+]
+dosi_df[code_cols] = dosi_df[code_cols].astype(str)
+dosi_df["Code"] = dosi_df[code_cols].agg("_".join, axis=1)
 
 
 def FPLogValue_with_scaling(x, t0, Dt, s):
