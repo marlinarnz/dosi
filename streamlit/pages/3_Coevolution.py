@@ -73,13 +73,18 @@ for idx, label in enumerate(spatials):
 # 3.  PLOTLY FIGURE  ───────────────────────────────────────────
 # --------------------------------------------------------------
 
-def build_plot(spatial, cluster, indicator, metric, grouper) -> go.Figure:
+def build_plot(df, spatial, cluster, indicator, metric, grouper, best_fits, n_best_fits) -> go.Figure:
     
     if cluster in clusters:
-        mask = (data_df['spatial']==spatial) & (data_df['cluster']==cluster) & (data_df['indicator']==indicator)
+        mask = (df['spatial']==spatial) & (df['cluster']==cluster) & (df['indicator']==indicator)
     else:
-        mask = (data_df['spatial']==spatial) & (data_df['indicator']==indicator)
-    data = data_df.loc[mask].copy()
+        mask = (df['spatial']==spatial) & (df['indicator']==indicator)
+    data = df.loc[mask].copy()
+    if best_fits:
+        data = data.sort_values(metric, ascending=False)\
+                   .groupby(['cluster', 'indicator', 'spatial', 'i_innovation'])\
+                   .apply(lambda g: g.loc[g['i_innovation']!=g['j_innovation']].head(n_best_fits))\
+                   .reset_index(drop=True)
     #data[metric] = data[metric].fillna(0).clip(lower=0)
     data = data.groupby(['i_'+grouper, 'j_'+grouper])[metric].mean().unstack()
     
@@ -88,15 +93,19 @@ def build_plot(spatial, cluster, indicator, metric, grouper) -> go.Figure:
     fig = px.imshow(data.values, x=x, y=y,
                     text_auto='.2f', aspect='auto', title=spatial,
                     color_continuous_scale='reds')
-    hoverdata = [[[data.index[j], data.columns[i]]
-                  for j in range(len(x))]
-                 for i in range(len(y))]
-    hovertemplate = (
-            'X: %{customdata[0]}<br>'
-            'Y: %{customdata[1]}<br>'
-            'Value: %{z}<extra></extra>')
-    fig.update_traces(customdata=hoverdata, hovertemplate=hovertemplate)
-    fig.update_coloraxes(cmin=0, cmax=1, showscale=False)
+    
+    if not best_fits:
+        hoverdata = [[[data.index[j], data.columns[i]]
+                      for j in range(len(x))]
+                     for i in range(len(y))]
+        hovertemplate = (
+                'X: %{customdata[0]}<br>'
+                'Y: %{customdata[1]}<br>'
+                'Value: %{z}<extra></extra>')
+        fig.update_traces(customdata=hoverdata, hovertemplate=hovertemplate)
+    
+    if data.mean().mean() < 1:
+        fig.update_coloraxes(cmin=0, cmax=1, showscale=False)
     #fig.update_yaxes(scaleanchor="x", scaleratio=1)
 
     return fig
@@ -107,14 +116,15 @@ n_fig_cols_radio = st.radio(
     [1, 2, 3],
     horizontal=True,
 )
-adjust_radio = st.radio(
-    "Adjust data?",
-    adjustments,
-    horizontal=True,
-)
+adjust_radio = st.toggle("View only best fits", value=False)
+if adjust_radio:
+    n_best_fits = st.number_input("Number of best fits", min_value=1, max_value=3)
+else:
+    n_best_fits = 0
+
 cols = st.columns(n_fig_cols_radio)
 spatials_ticked = [k for k,v in spatial_states.items() if v]
 for idx, label in enumerate(spatials_ticked):
     with cols[idx % n_fig_cols_radio]:
-        fig = build_plot(label, cluster_radio, indicator_radio, metric_radio, grouper_radio)
+        fig = build_plot(data_df, label, cluster_radio, indicator_radio, metric_radio, grouper_radio, adjust_radio, n_best_fits)
         st.plotly_chart(fig, use_container_width=True)

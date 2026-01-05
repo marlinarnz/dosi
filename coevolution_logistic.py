@@ -453,6 +453,7 @@ def logistic_fitting():
     K = []
     R_square = []
     R_square_adj = []
+    time_lag = []
     group_vars = ['Innovation Name', 'Description', 'Metric'] # defines one time series
     dosi['name'] = dosi['Spatial Scale']
     hatch['name'] = hatch['Spatial Scale']
@@ -463,6 +464,7 @@ def logistic_fitting():
     data = pd.concat([dosi,  hatch]).reset_index(drop=True)
     
     # Assign cluster definitions
+    # Data explodes since an innovation may occur in multiple clusters
     data['cluster'] = [['All',] for _ in range(len(data))]
     for c, innos in clusters.items():
         mask = data['Innovation Name'].map(metadata['Innovation Name']).isin(innos)
@@ -472,13 +474,16 @@ def logistic_fitting():
     # Analyse co-evolution for specific regions, etc.
     # pairwise for each two time series
     # Adjustments
-    for adjustment in ['Original data', 't0 aligned']:
-        # Don't mix innovation indicators
-        for indicator in ['1.1']:
+    for adjustment in ['Original data']:# ['Original data', 't0 aligned']:
+        # Look at certain innovation indicators
+        for indicator in ['1.1', 'All']:
             
             # For each cluster and once irrespective of the cluster
             for cluster in list(clusters.keys()) + ['All']:
-                mask = (data['Indicator Number']==indicator) & (data['cluster']==cluster)
+                if indicator != 'All':
+                    mask = (data['Indicator Number']==indicator) & (data['cluster']==cluster)
+                else:
+                    mask = (data['cluster']==cluster)
                 
                 # For each spatial scale, including the hierarchy
                 options = data.loc[mask, 'Spatial Scale'].unique()
@@ -534,6 +539,9 @@ def logistic_fitting():
                                     R_square.append(r2_log)
                                     R_square_adj.append(r2adj_log)
                                     
+                                    delta_t = groups[i]['Year'].mean() - groups[j]['Year'].mean()
+                                    time_lag.append(delta_t)
+                                    
                                     adjustments.append(adjustment)
                                     cluster_names.append(cluster)
                                     indicators.append(indicator)
@@ -553,7 +561,7 @@ def logistic_fitting():
                             'i_metric':i_metrics, 'j_metric':j_metrics,
                             'i_description':i_descriptions, 'j_description':j_descriptions,
                             't0':t0, 'Dt':Dt, 'K':K,
-                            'R_square':R_square, 'R_square_adj':R_square_adj})
+                            'R_square':R_square, 'R_square_adj':R_square_adj, 'time_lag':time_lag})
     return results
 
 
