@@ -8,16 +8,10 @@ from scipy.optimize import curve_fit, differential_evolution, minimize
 from scipy.stats import linregress
 
 
-VERSION = "v27"
-VERSION_FOR_FITS = "v26"
-VERSION_FOR_SUMMARY_READING = "v25"
+VERSION_FOR_SUMMARY_READING = "v27"
 VERSION_FOR_METADATA = "v25_withhatch_2"
-VERSION_FOR_DATA = "v26"
-SMALL_SUBSET = False  # Do you only want a small subset for testing?
-REDO_FITS = True
+VERSION_FOR_DATA = "v27"
 RENUMBER_METADATA_CODES = False
-CREATE_PDFS = True
-LINE_COLOR_LOG = "blue"
 PATH = "./data"
 
 def get_dosi_data():
@@ -42,15 +36,7 @@ def get_dosi_data():
     hatch["Spatial Scale"] = hatch["Spatial Scale"].str.rstrip()
     hatch["Innovation Name"] = hatch["Innovation Name"].str.rstrip()
 
-    # For debugging: only subset
-    if SMALL_SUBSET:
-        adoptions_df = adoptions_df[
-            # adoptions_df["Innovation Name"].isin(["car sharing"])
-            # adoptions_df["Indicator Number"].isin(["3.3", "3.5", "4.1"])
-            # adoptions_df["Indicator Number"].isin(["1.1"])
-            adoptions_df["Metric"].isin(["market share"])
-        ]
-
+    # Load metadata for unique codes for each time series
     fn_metadata = f"{PATH}/metadata_master_{VERSION_FOR_METADATA}.xlsx"
     def convert_to_three_digit_notation(s):
         return re.sub(r"([a-zA-Z])(\d+)", lambda m: f"{m.group(1)}{int(m.group(2)):03}", s)
@@ -73,9 +59,8 @@ def get_dosi_data():
     metadata = dict()
     metadata["Innovation Name"] = read_metadata_table(fn_metadata, "A,D")
     metadata["Spatial Scale"] = read_metadata_table(fn_metadata, "G,I")
-    metadata["Indicator Number"] = read_metadata_table(
-        fn_metadata, "L,O"
-    )  # Column M is the indicator name. Superfluous because maps 1-1 on indicator number
+    metadata["Indicator Number"] = read_metadata_table(fn_metadata, "L,O")
+    # Column M is the indicator name. Superfluous because maps 1-1 on indicator number
     metadata["Description"] = read_metadata_table(fn_metadata, "R,S")
     metadata["Metric"] = read_metadata_table(fn_metadata, "V,W")
     # If metadata file is not in sync with the data table, remake the description dictionary
@@ -100,63 +85,46 @@ def get_dosi_data():
                 k.lower() if isinstance(k, str) else k: v for k, v in nested_dict.items()
             }
     group_vars = list(metadata.keys())
-
-    # Load cluster assignment
-    hatch_clusters = {
-        "sufficiency": [
-            "Electric Bicycles",  # Ebikes
-            "Solar Photovoltaic",  # solar PV
-        ],
-        "digital": [
-            "Cellphones",  # Cellphones
-            "Home Computers",  # home computer
-            "Household Internet Access",  # internet access
-            "Microcomputers",  # microcomputers
-            "Podcasting",  # podcasting
-            "Real-Time Gross Settlement Adoption",  # realtime gross settlement
-            "Social Media Usage",  # social media usage
-        ],
-        "consume": [
-            "Cable TV",  # Cable TV
-            "Dishwashers",  # Dishwashers
-            "Electric Bicycles",  # Ebikes
-            "Home Air Conditioning",  # home AC
-            "Laundry Dryers",  # laundry dryers
-            "Microwaves",  # microwave oven
-            "Television",  # TV
-            "Washing Machines",  # wash machines
-        ],
-        "green growth": [
-            "Nox Pollution Controls (Boilers)",  # NOx pollution control
-            "Offshore Wind Energy",  # offshore wind
-            "Onshore Wind Energy",  # onshore wind
-            "Solar Photovoltaic",  # solar PV
-            "Wet Flue Gas Desulfurization Systems",  # FGD
-        ],
-        "health": ["Electric Bicycles"],  # Ebikes (as given)
-    }
-    clusters_df = pd.read_csv(
-        f"{PATH}/PosTip_Clusters.csv",  # Summary file by Charlie
-        skiprows=15,
-        nrows=28,
-        usecols=[8, 35, 36, 37, 38, 39],
-        encoding="ISO-8859-1",
-        header=0,
-    )
-    clusters_df.rename(
-        columns={clusters_df.columns[0]: "innovation code"}, inplace=True
-    )  # If there is an error here, then there may be a column reference error, e.g. the first column of the csv file is empty and pd.red_csv skips it
-    # remove first row of clusters_df
-    clusters_df.drop(index=clusters_df.index[0], axis=0, inplace=True)
-    clusters_dict = {
-        col: clusters_df.loc[~clusters_df[col].isna(), "innovation code"].tolist()
-        for col in clusters_df.columns[1:]
-    }
-    for cluster, technologies in hatch_clusters.items():
-        for technology in technologies:
-            clusters_dict[cluster].append(metadata["Innovation Name"][technology.lower()])
     
-    return adoptions_df, hatch, metadata, clusters_dict, categories
+    # Attach codes to data file
+    adoptions_df["Innovation Code"] = (
+        adoptions_df["Innovation Name"].str.lower().map(metadata["Innovation Name"]))
+    adoptions_df["Region Code"] = (
+        adoptions_df["Spatial Scale"].str.lower().map(metadata["Spatial Scale"]))
+    adoptions_df["Indicator Code"] = (
+        adoptions_df["Indicator Number"].str.lower().map(metadata["Indicator Number"]))
+    adoptions_df["Description Code"] = (
+        adoptions_df["Description"].str.lower().map(metadata["Description"]))
+    adoptions_df["Metric Code"] = adoptions_df["Metric"].str.lower().map(metadata["Metric"])
+    code_cols = [
+            "Innovation Code",
+            "Region Code",
+            "Indicator Code",
+            "Description Code",
+            "Metric Code",
+    ]
+    adoptions_df[code_cols] = adoptions_df[code_cols].astype(str)
+    adoptions_df["ID"] = adoptions_df[code_cols].agg("_".join, axis=1)
+
+    # Cluster assignment
+    clusters = ['digital', 'prosumer', 'health', 'sufficiency']
+    clusters_df = pd.read_excel(f"{PATH}/innovation_list_HWLclusters_v2.0_CW.xlsx")
+    # Take only innovations with time series
+    clusters_df = clusters_df.loc[clusters_df['available adoption time series']==1]
+    # Fill label for HATCH innovations from metadata
+    #clusters_df['innovation_label'] = clusters_df['innovation_label'].fillna(
+    #    clusters_df['innovation_name'].str.lower().map(metadata['Innovation Name']))
+    # Convert to dict
+    clusters_dict = {
+        c: clusters_df.loc[~clusters_df[c].isna(), "innovation_name"].str.lower().tolist()
+        for c in clusters}
+    for c, innos in clusters_dict.items():
+        assert len(innos) > 0, c+' cluster has no innovations assigned'
+    
+    # Summary of logfit estimation
+    summary = pd.read_csv(f"{PATH}/summary_table_{VERSION_FOR_SUMMARY_READING}.csv")
+    
+    return adoptions_df, hatch, metadata, clusters_dict, categories, summary
 
 
 def FPLogValue_with_scaling(x, t0, Dt, K):
@@ -223,9 +191,13 @@ def calculate_adjusted_r2(y_obs, y_pred, n_params):
     # Calculate R^2 and adjusted R^2
     if np.any(np.isnan(y_pred)):  # If predictions are NaN, return NaN
         return np.nan, np.nan
-    ss_res = np.sum((y_obs - y_pred) ** 2)
-    ss_tot = np.sum((y_obs - np.mean(y_obs)) ** 2)
-    r2 = 1 - (ss_res / ss_tot)
+    if len(y_obs) != len(y_pred):
+        raise ValueError('R^2 estimation: observed and predicted data have different shapes')
+    ss_res = np.sum([(yo - yp) ** 2 for yo, yp in zip(y_obs, y_pred)])
+    ss_tot = np.sum([(yo - np.mean(y_obs)) ** 2 for yo in y_obs])
+    if ss_tot == 0:
+        raise ValueError("R^2 is undefined when all y_obs values are identical")
+    r2 = 1 - min(1, ss_res / ss_tot)
     n = len(y_obs)
     r2_adj = 1 - ((1 - r2) * (n - 1) / (n - n_params - 1))
     return r2, r2_adj
@@ -430,9 +402,9 @@ def get_spatial_hierarchy():
 # Main script
 ##########################################
 
-def logistic_fitting():
+def logistic_fitting(single_series=False):
     
-    dosi, hatch, metadata, clusters, categories = get_dosi_data()
+    dosi, hatch, metadata, clusters, categories, summary = get_dosi_data()
     spatial_hierarchy, new_spatials = get_spatial_hierarchy()
     
     # Prepare data structures
@@ -453,6 +425,7 @@ def logistic_fitting():
     K = []
     R_square = []
     R_square_adj = []
+    R_square_weighted = []
     time_lag = []
     group_vars = ['Innovation Name', 'Description', 'Metric'] # defines one time series
     dosi['name'] = dosi['Spatial Scale']
@@ -460,6 +433,12 @@ def logistic_fitting():
     for i in range(len(group_vars)):
         dosi['name'] += ' - ' + dosi[group_vars[i]]
         hatch['name'] += ' - ' + hatch[group_vars[i]]
+    
+    if single_series:
+        selection_dict = summary.set_index('Code')['select_1.1_allregions_FIN']
+        dosi = dosi.loc[
+            dosi['ID'].map(selection_dict).astype(bool) # take all with 1 in selection column
+            | dosi['ID'].map(selection_dict).isna()] # take all that don't appear in selection column
         
     data = pd.concat([dosi,  hatch]).reset_index(drop=True)
     
@@ -467,7 +446,7 @@ def logistic_fitting():
     # Data explodes since an innovation may occur in multiple clusters
     data['cluster'] = [['All',] for _ in range(len(data))]
     for c, innos in clusters.items():
-        mask = data['Innovation Name'].map(metadata['Innovation Name']).isin(innos)
+        mask = data['Innovation Name'].str.lower().isin(innos)
         data.loc[mask, 'cluster'] = data.loc[mask, 'cluster'].apply(lambda l: l+[c])
     data = data.explode('cluster').reset_index(drop=True)
     
@@ -494,10 +473,10 @@ def logistic_fitting():
                         spatial_list += spatial_hierarchy[spatial]
                     
                     # Build groups = time series
-                    data_ = data.loc[mask & (data['Spatial Scale'].isin(spatial_list))]
+                    data_ = data.loc[mask & (data['Spatial Scale'].isin(spatial_list))].reset_index(drop=True)
                     groups = [g[['name', 'Value', 'Year']+group_vars] for _, g
                               in data_.groupby(group_vars)]
-                    if len(groups) > 1 and len(data_) > 5:
+                    if len(groups) > 1 and len(data_) > 6:
                         
                         # Estimate pairwise fits
                         print('Estimate logistic fits for {}x{} time series in {}, {} data points'.format(
@@ -538,6 +517,13 @@ def logistic_fitting():
                                     r2_log, r2adj_log = calculate_adjusted_r2(group["Value"], y_pred, n_params=3)
                                     R_square.append(r2_log)
                                     R_square_adj.append(r2adj_log)
+                                    if i!=j and not isinstance(y_pred, float) and len(y_pred)>2:
+                                        r2_i,_ = calculate_adjusted_r2(groups[i]["Value"], y_pred.loc[groups[i].index], n_params=0)
+                                        r2_j,_ = calculate_adjusted_r2(groups[j]["Value"], y_pred.loc[groups[j].index], n_params=0)
+                                        r2_weighted = r2_i*len(groups[i])/len(group) + r2_j*len(groups[j])/len(group)
+                                    else:
+                                        r2_weighted = r2_log
+                                    R_square_weighted.append(r2_weighted)
                                     
                                     delta_t = groups[i]['Year'].mean() - groups[j]['Year'].mean()
                                     time_lag.append(delta_t)
@@ -561,10 +547,11 @@ def logistic_fitting():
                             'i_metric':i_metrics, 'j_metric':j_metrics,
                             'i_description':i_descriptions, 'j_description':j_descriptions,
                             't0':t0, 'Dt':Dt, 'K':K,
-                            'R_square':R_square, 'R_square_adj':R_square_adj, 'time_lag':time_lag})
+                            'R_square':R_square, 'R_square_adj':R_square_adj,
+                            'R_square_weighted':R_square_weighted, 'time_lag':time_lag})
     return results
 
 
 if __name__ == '__main__':
-    results = logistic_fitting()
-    results.to_csv(f"{PATH}/results_coevolution_logistic.csv")
+    results = logistic_fitting(single_series=True)
+    results.to_csv(f"{PATH}/results_coevolution_logistic_selected.csv")

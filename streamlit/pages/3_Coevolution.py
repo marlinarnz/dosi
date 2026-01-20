@@ -15,11 +15,11 @@ st.title("Coevolutions")
 # load data
 # Get the path of the current script (inside streamlit/)
 ST_DIR = Path(__file__).parent.parent
-data_df = pd.read_csv(ST_DIR / '../data/results_coevolution_logistic.csv')
+data_df = pd.read_csv(ST_DIR / '../data/results_coevolution_logistic_selected.csv')
 adjustments = list(data_df['adjustment'].unique())
 clusters = list(data_df['cluster'].unique())
 indicators = list(data_df['indicator'].unique())
-coev_metrics = [i for i in ['R_square', 'R_square_adj'] if i in data_df.columns]
+coev_metrics = [i for i in ['R_square_weighted', 'R_square', 'R_square_adj', 'time_lag'] if i in data_df.columns]
 grouper_options = [i for i in ['ID', 'innovation', 'metric', 'description'] if 'i_'+i in data_df.columns]
 
 # ──────────────────────────────────────────────────────────────
@@ -80,6 +80,8 @@ def build_plot(df, spatial, cluster, indicator, metric, grouper, best_fits, n_be
     else:
         mask = (df['spatial']==spatial) & (df['indicator']==indicator)
     data = df.loc[mask].copy()
+    if metric == 'time_lag':
+        data[metric] = data[metric].abs()
     if best_fits:
         data = data.sort_values(metric, ascending=False)\
                    .groupby(['cluster', 'indicator', 'spatial', 'i_innovation'])\
@@ -101,12 +103,11 @@ def build_plot(df, spatial, cluster, indicator, metric, grouper, best_fits, n_be
         hovertemplate = (
                 'X: %{customdata[0]}<br>'
                 'Y: %{customdata[1]}<br>'
-                'Value: %{z}<extra></extra>')
+                'Metric: %{z}<extra></extra>')
         fig.update_traces(customdata=hoverdata, hovertemplate=hovertemplate)
     
     if data.mean().mean() < 1:
         fig.update_coloraxes(cmin=0, cmax=1, showscale=False)
-    #fig.update_yaxes(scaleanchor="x", scaleratio=1)
 
     return fig
 
@@ -116,9 +117,9 @@ n_fig_cols_radio = st.radio(
     [1, 2, 3],
     horizontal=True,
 )
-adjust_radio = st.toggle("View only best fits", value=False)
+adjust_radio = st.toggle("View only best coevolutions", value=False)
 if adjust_radio:
-    n_best_fits = st.number_input("Number of best fits", min_value=1, max_value=3)
+    n_best_fits = st.number_input("Number of best fits", min_value=1, max_value=4)
 else:
     n_best_fits = 0
 
