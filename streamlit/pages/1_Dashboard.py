@@ -18,10 +18,10 @@ import plotly.graph_objects as go
 from pathlib import Path
 
 # Get the path of the current script (inside streamlit/)
-CURRENT_DIR = Path(__file__).parent
+CURRENT_DIR = Path(__file__).parent.parent
 
-VERSION_FOR_DATA = "v25"
-VERSION_FOR_FITPARAMETERS = "v26"
+VERSION_FOR_DATA = "v27"
+VERSION_FOR_FITPARAMETERS = "v27"
 VERSION_FOR_METADATA = "v25"
 YEAR_PADDING_FOR_PLOTTING = 10
 

@@ -51,10 +51,10 @@ hatch_clusters = {
 }
 
 # Get the path of the current script (inside streamlit/)
-CURRENT_DIR = Path(__file__).parent
+CURRENT_DIR = Path(__file__).parent.parent
 
-VERSION_FOR_DATA = "v25"
-VERSION_FOR_FITPARAMETERS = "v26"
+VERSION_FOR_DATA = "v27"
+VERSION_FOR_FITPARAMETERS = "v27"
 VERSION_FOR_METADATA = "v25_withhatch_2"  # "v25" #
 YEAR_PADDING_FOR_PLOTTING = 10
 
@@ -231,13 +231,18 @@ cols = st.columns(NUMBER_OF_COLUMNS)
 feature_states = {}
 
 for idx, label in enumerate(ALL_INNOVATION_CODES):
+    display_name = next(
+        (key for key, value in metadata["Innovation Name"].items() if value == label),
+        None,  # default if not found
+    )
+
+    if display_name is None:
+        # Skip labels that don't exist in metadata
+        continue
+
     with cols[idx % NUMBER_OF_COLUMNS]:
         feature_states[label] = st.checkbox(
-            next(
-                key
-                for key, value in metadata["Innovation Name"].items()
-                if value == label
-            ),
+            display_name,
             value=label in prechecked,
         )
 

@@ -27,6 +27,9 @@ def get_dosi_data():
     # Correct for trailing spaces in the data
     adoptions_df["Spatial Scale"] = adoptions_df["Spatial Scale"].str.rstrip()
     adoptions_df["Innovation Name"] = adoptions_df["Innovation Name"].str.rstrip()
+    # Manual corrections
+    adoptions_df["Innovation Name"] = adoptions_df["Innovation Name"]\
+        .str.replace('organic food consumption', 'organic food')
     
     # Load HATCH
     fn_data = f"{PATH}/hatch_data_dosi_format.csv"
@@ -196,7 +199,8 @@ def calculate_adjusted_r2(y_obs, y_pred, n_params):
     ss_res = np.sum([(yo - yp) ** 2 for yo, yp in zip(y_obs, y_pred)])
     ss_tot = np.sum([(yo - np.mean(y_obs)) ** 2 for yo in y_obs])
     if ss_tot == 0:
-        raise ValueError("R^2 is undefined when all y_obs values are identical")
+        return np.nan, np.nan
+        #raise ValueError("R^2 is undefined when all y_obs values are identical")
     r2 = 1 - min(1, ss_res / ss_tot)
     n = len(y_obs)
     r2_adj = 1 - ((1 - r2) * (n - 1) / (n - n_params - 1))
@@ -439,7 +443,11 @@ def logistic_fitting(single_series=False):
         dosi = dosi.loc[
             dosi['ID'].map(selection_dict).astype(bool) # take all with 1 in selection column
             | dosi['ID'].map(selection_dict).isna()] # take all that don't appear in selection column
-        
+    
+    # Correct for declining trends
+    #dosi['reversed'] = dosi['ID'].map(summary.set_index('Code')['suspected_reversal_down2up'])
+    #dosi.loc[dosi['reversed']==1, 'Value'] = 
+    
     data = pd.concat([dosi,  hatch]).reset_index(drop=True)
     
     # Assign cluster definitions
@@ -479,8 +487,8 @@ def logistic_fitting(single_series=False):
                     if len(groups) > 1 and len(data_) > 6:
                         
                         # Estimate pairwise fits
-                        print('Estimate logistic fits for {}x{} time series in {}, {} data points'.format(
-                            len(groups), len(groups), spatial, len(data_)))
+                        print('Estimate logistic fits for {}x{} time series in {}, {} data points, {} cluster'.format(
+                            len(groups), len(groups), spatial, len(data_), cluster))
                         for i in range(len(groups)):
                             for j in range(len(groups)):
                                 if i>j:
