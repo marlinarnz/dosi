@@ -97,14 +97,17 @@ def build_plot(df, spatial, cluster, indicator, metric, grouper, best_fits, n_be
                     color_continuous_scale='reds')
     
     if not best_fits:
-        hoverdata = [[[data.index[j], data.columns[i]]
-                      for j in range(len(x))]
-                     for i in range(len(y))]
-        hovertemplate = (
-                'X: %{customdata[0]}<br>'
-                'Y: %{customdata[1]}<br>'
-                'Metric: %{z}<extra></extra>')
-        fig.update_traces(customdata=hoverdata, hovertemplate=hovertemplate)
+        try:
+            hoverdata = [[[data.index[j], data.columns[i]]
+                          for j in range(len(x))]
+                         for i in range(len(y))]
+            hovertemplate = (
+                    'X: %{customdata[0]}<br>'
+                    'Y: %{customdata[1]}<br>'
+                    'Metric: %{z}<extra></extra>')
+            fig.update_traces(customdata=hoverdata, hovertemplate=hovertemplate)
+        except IndexError:
+            pass
     
     if data.mean().mean() < 1:
         fig.update_coloraxes(cmin=0, cmax=1, showscale=False)

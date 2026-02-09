@@ -7,9 +7,6 @@ import numpy as np
 import re
 from sklearn.linear_model import LinearRegression
 from scipy.stats import linregress
-import matplotlib.pyplot as plt
-import seaborn as sns
-from matplotlib.backends.backend_pdf import PdfPages
 import nbformat
 
 import plotly.express as px
