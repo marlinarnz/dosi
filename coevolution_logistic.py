@@ -434,21 +434,46 @@ def logistic_fitting(single_series=False):
     group_vars = ['Innovation Name', 'Description', 'Metric'] # defines one time series
     dosi['name'] = dosi['Spatial Scale']
     hatch['name'] = hatch['Spatial Scale']
+    summary['name'] = summary['Spatial Scale']
     for i in range(len(group_vars)):
         dosi['name'] += ' - ' + dosi[group_vars[i]]
         hatch['name'] += ' - ' + hatch[group_vars[i]]
-    
-    if single_series:
-        selection_dict = summary.set_index('Code')['select_1.1_allregions_FIN']
-        dosi = dosi.loc[
-            dosi['ID'].map(selection_dict).astype(bool) # take all with 1 in selection column
-            | dosi['ID'].map(selection_dict).isna()] # take all that don't appear in selection column
+        summary['name'] += ' - ' + summary[group_vars[i]]
     
     # Correct for declining trends
     #dosi['reversed'] = dosi['ID'].map(summary.set_index('Code')['suspected_reversal_down2up'])
     #dosi.loc[dosi['reversed']==1, 'Value'] = 
     
     data = pd.concat([dosi,  hatch]).reset_index(drop=True)
+    timeseries = set(data['name'])
+    
+    # Procedure for estimating the logfits
+    def estimate_logfit(g):
+        slope, _, _, _, _ = linregress(g["Year"].values, g["Value"].values)
+        Dt_guess = np.log(81) / slope \
+            * (max(g["Value"]) if max(g["Value"]) > 0 else 1) \
+            if slope != 0 else 100
+        result = FPLogFit_with_scaling(
+            g["Year"].values,
+            g["Value"].values,
+            Dt_initial_guess=Dt_guess,
+        )
+        return result
+    
+    # Filter out nonsense data
+    if single_series:
+        selection_dict = summary.set_index('name')['select_1.1_allregions_FIN']#.fillna(0)
+        data = data.loc[
+            data['name'].map(selection_dict).astype(bool) # take all with 1 in selection column
+            | data['name'].map(selection_dict).isna()] # take all that don't appear in selection column
+    
+    # Get inflection point from single fits
+    t0_dict = summary.set_index('name')['log_t0'].to_dict()
+    if len(t0_dict) < len(timeseries):
+        missing_vals = data.loc[~data['name'].isin(t0_dict.keys())
+                                ].groupby('name').apply(lambda g: estimate_logfit(g)['t0'])
+        t0_dict.update(missing_vals.to_dict())
+    data['t0'] = data['name'].map(t0_dict)
     
     # Assign cluster definitions
     # Data explodes since an innovation may occur in multiple clusters
@@ -482,7 +507,7 @@ def logistic_fitting(single_series=False):
                     
                     # Build groups = time series
                     data_ = data.loc[mask & (data['Spatial Scale'].isin(spatial_list))].reset_index(drop=True)
-                    groups = [g[['name', 'Value', 'Year']+group_vars] for _, g
+                    groups = [g[['name', 'Value', 'Year', 't0']+group_vars] for _, g
                               in data_.groupby(group_vars)]
                     if len(groups) > 1 and len(data_) > 6:
                         
@@ -506,16 +531,7 @@ def logistic_fitting(single_series=False):
                                 
                                 if len(set(group['Year'])) > 3:
                                     
-                                    slope, _, _, _, _ = linregress(group["Year"].values,
-                                                                   group["Value"].values)
-                                    Dt_guess = np.log(81) / slope \
-                                        * (max(group["Value"]) if max(group["Value"]) > 0 else 1) \
-                                        if slope != 0 else 100
-                                    result = FPLogFit_with_scaling(
-                                        group["Year"].values,
-                                        group["Value"].values,
-                                        Dt_initial_guess=Dt_guess,
-                                    )
+                                    result = estimate_logfit(group)
                                     t0.append(result['t0'])
                                     Dt.append(result['Dt'])
                                     K.append(result['K'])
@@ -533,8 +549,16 @@ def logistic_fitting(single_series=False):
                                         r2_weighted = r2_log
                                     R_square_weighted.append(r2_weighted)
                                     
-                                    delta_t = groups[i]['Year'].mean() - groups[j]['Year'].mean()
-                                    time_lag.append(delta_t)
+                                    # Calculate time difference of t0
+                                    t0i = groups[i]['t0'].mean()
+                                    t0j = groups[j]['t0'].mean()
+                                    if groups[i]['t0'].isna().all():
+                                        res = estimate_logfit(groups[i])
+                                        t0i = res['t0']
+                                    if groups[j]['t0'].isna().all():
+                                        res = estimate_logfit(groups[j])
+                                        t0j = res['t0']
+                                    time_lag.append(t0i - t0j)
                                     
                                     adjustments.append(adjustment)
                                     cluster_names.append(cluster)

@@ -80,31 +80,42 @@ def build_plot(df, spatial, cluster, indicator, metric, grouper, best_fits, n_be
     else:
         mask = (df['spatial']==spatial) & (df['indicator']==indicator)
     data = df.loc[mask].copy()
-    if metric == 'time_lag':
-        data[metric] = data[metric].abs()
     if best_fits:
         data = data.sort_values(metric, ascending=False)\
                    .groupby(['cluster', 'indicator', 'spatial', 'i_innovation'])\
                    .apply(lambda g: g.loc[g['i_innovation']!=g['j_innovation']].head(n_best_fits))\
                    .reset_index(drop=True)
     #data[metric] = data[metric].fillna(0).clip(lower=0)
-    data = data.groupby(['i_'+grouper, 'j_'+grouper])[metric].mean().unstack()
+    
+    #print('Number of innovations x axis: {}; y axis {}'.format(len(data['i_ID'].unique()), len(data['j_ID'].unique())))
+    grouped = data.groupby(['i_'+grouper, 'j_'+grouper])
+    data = grouped[metric].mean().unstack()
+    id_i = list(grouped['i_ID'].apply(lambda x: '; '.join(list(x))))
+    id_j = list(grouped['j_ID'].apply(lambda x: '; '.join(list(x))))
+    
+    if metric == 'time_lag':
+        data = data.abs()
+        data[data > 50] = np.nan
     
     y = data.index if grouper in ['innovation', 'metric'] else list(range(len(data.index)))
     x = data.columns if grouper in ['innovation', 'metric'] else list(range(len(data.columns)))
+    #assert len(id_i)==len(x) and len(id_j)==len(y), 'Aggregation failed, index lengths '+str(len(x))+' vs. '+str(len(id_i))+str(id_i)
     fig = px.imshow(data.values, x=x, y=y,
                     text_auto='.2f', aspect='auto', title=spatial,
                     color_continuous_scale='reds')
     
     if not best_fits:
         try:
-            hoverdata = [[[data.index[j], data.columns[i]]
-                          for j in range(len(x))]
-                         for i in range(len(y))]
+            id_i = grouped['i_ID'].apply(lambda x: '; '.join(list(x))).unstack()
+            id_j = grouped['j_ID'].apply(lambda x: '; '.join(list(x))).unstack()
+            hoverdata = np.stack((id_j.values, id_i.values), axis=-1)
+            #hoverdata = [[[data.index[j], data.columns[i]]
+            #              for j in range(len(x))]
+            #             for i in range(len(y))]
             hovertemplate = (
                     'X: %{customdata[0]}<br>'
                     'Y: %{customdata[1]}<br>'
-                    'Metric: %{z}<extra></extra>')
+                    +metric+': %{z}<extra></extra>')
             fig.update_traces(customdata=hoverdata, hovertemplate=hovertemplate)
         except IndexError:
             pass
