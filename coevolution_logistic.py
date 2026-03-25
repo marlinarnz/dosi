@@ -483,12 +483,14 @@ def logistic_fitting(single_series=False):
         data.loc[mask, 'cluster'] = data.loc[mask, 'cluster'].apply(lambda l: l+[c])
     data = data.explode('cluster').reset_index(drop=True)
     
+    indicators_in_data = list(data.loc[data['Indicator Number'].notna(), 'Indicator Number'].unique())
+    
     # Analyse co-evolution for specific regions, etc.
     # pairwise for each two time series
     # Adjustments
     for adjustment in ['Original data']:# ['Original data', 't0 aligned']:
         # Look at certain innovation indicators
-        for indicator in ['1.1', 'All']:
+        for indicator in indicators_in_data:
             
             # For each cluster and once irrespective of the cluster
             for cluster in list(clusters.keys()) + ['All']:

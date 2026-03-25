@@ -20,7 +20,7 @@ adjustments = list(data_df['adjustment'].unique())
 clusters = list(data_df['cluster'].unique())
 indicators = list(data_df['indicator'].unique())
 coev_metrics = [i for i in ['R_square_weighted', 'R_square', 'R_square_adj', 'time_lag'] if i in data_df.columns]
-grouper_options = [i for i in ['ID', 'innovation', 'metric', 'description'] if 'i_'+i in data_df.columns]
+grouper_options = [i for i in ['innovation', 'ID', 'metric', 'description'] if 'i_'+i in data_df.columns]
 
 # ──────────────────────────────────────────────────────────────
 # 1.  RADIO-BUTTON ROW  ────────────────────────────────────────
@@ -94,8 +94,10 @@ def build_plot(df, spatial, cluster, indicator, metric, grouper, best_fits, n_be
     id_j = list(grouped['j_ID'].apply(lambda x: '; '.join(list(x))))
     
     if metric == 'time_lag':
-        data = data.abs()
         data[data > 50] = np.nan
+        data[data < -50] = np.nan
+    else:
+        data[data < 0.001] = np.nan
     
     y = data.index if grouper in ['innovation', 'metric'] else list(range(len(data.index)))
     x = data.columns if grouper in ['innovation', 'metric'] else list(range(len(data.columns)))
@@ -120,8 +122,10 @@ def build_plot(df, spatial, cluster, indicator, metric, grouper, best_fits, n_be
         except IndexError:
             pass
     
-    if data.mean().mean() < 1:
+    if data.mean().mean() < 1 and metric != 'time_lag':
         fig.update_coloraxes(cmin=0, cmax=1, showscale=False)
+    elif metric == 'time_lag':
+        fig.update_coloraxes(cmid=0, colorscale=[[0.0, "#b30000"], [0.5, "#ffffff"], [1.0, "#b30000"]])
 
     return fig
 
