@@ -62,14 +62,14 @@ ONEDRIVE_PATH = (
 
 fn_data = CURRENT_DIR / PATH / f"adjusted_datasets_{VERSION_FOR_DATA}.csv"
 
-fn_data_hatch = CURRENT_DIR / PATH / f"hatch_data_dosi_format.csv"
+fn_data_hatch = CURRENT_DIR / PATH / f"hatch/hatch_data_dosi_format.csv"
 fn_summary = CURRENT_DIR / PATH / f"""summary_table_{VERSION_FOR_FITPARAMETERS}.csv"""
 fn_summary_hatch = CURRENT_DIR / PATH / f"""summary_table_HATCH_v27.csv"""
 fn_clusters = CURRENT_DIR / PATH / "PosTip_Clusters.csv"  # Summary file by Charlie
 fn_early = (
     CURRENT_DIR / PATH / "EarlyAdopterRegions_perInnovation_21March.csv"
 )  # Early Adopting regions
-fn_early_hatch = CURRENT_DIR / PATH / "hatch_early_dict.csv"  # Early Adopting regions
+fn_early_hatch = CURRENT_DIR / PATH / "hatch/hatch_early_dict.csv"  # Early Adopting regions
 fn_metadata = CURRENT_DIR / PATH / f"metadata_master_{VERSION_FOR_METADATA}.xlsx"
 
 dosi_df = pd.concat(

@@ -21,17 +21,41 @@ VERSION_FOR_DATA = "v27"
 VERSION_FOR_FITPARAMETERS = "v27"
 VERSION_FOR_METADATA = "v25"
 YEAR_PADDING_FOR_PLOTTING = 10
-
 PATH = "../data"
-fn_data = CURRENT_DIR / PATH / f"adjusted_datasets_{VERSION_FOR_DATA}.csv"
-fn_summary = CURRENT_DIR / PATH / f"""summary_table_{VERSION_FOR_FITPARAMETERS}.csv"""
-fn_clusters = CURRENT_DIR / PATH / "PosTip_Clusters.csv"  # Summary file by Charlie
+
+
+st.set_page_config(layout="wide")  # add at the very top, before st.title
+
+st.title("Within innovations")
+
+version_data = st.text_input("Enter DoSI data file version to be used (must be > v26)", value=VERSION_FOR_DATA)
+version_summary = st.text_input("Enter summary data file version to be used (must be > v26)", value=VERSION_FOR_FITPARAMETERS)
+
+# Load data and logfit estimation summary
+@st.cache_data
+def load_data(version_data):
+    return pd.read_csv(CURRENT_DIR / PATH / f"adjusted_datasets_{version_data}.csv", converters={"Indicator Number": str})
+try:
+    dosi_df = load_data(version_data)
+except FileNotFoundError:
+    st.error(f"⚠️ Data version '{version_data}' not found. Please enter a valid version. Otherwise, the default {VERSION_FOR_DATA} is used.")
+    dosi_df = load_data(VERSION_FOR_DATA)
+
+@st.cache_data
+def load_summary(version_summary):
+    return pd.read_csv(CURRENT_DIR / PATH / f"summary_table_{version_summary}.csv", converters={"Indicator Number": str})
+try:
+    summary_df = load_summary(version_summary)
+except FileNotFoundError:
+    st.error(f"⚠️ Data version '{version_summary}' not found. Please enter a valid version. Otherwise, the default {VERSION_FOR_FITPARAMETERS} is used.")
+    summary_df = load_summary(VERSION_FOR_FITPARAMETERS)
+
+# Load supplementary data
 fn_early = (
     CURRENT_DIR / PATH / "EarlyAdopterRegions_perInnovation_21March.csv"
 )  # Early Adopting regions
 fn_metadata = CURRENT_DIR / PATH / f"metadata_master_{VERSION_FOR_METADATA}.xlsx"
 
-dosi_df = pd.read_csv(fn_data, converters={"Indicator Number": str})
 dosi_df["Value"] = pd.to_numeric(dosi_df["Value"], errors="coerce")
 dosi_df = dosi_df.dropna(subset=["Value"])
 
@@ -39,29 +63,10 @@ dosi_df = dosi_df.dropna(subset=["Value"])
 dosi_df["Spatial Scale"] = dosi_df["Spatial Scale"].str.rstrip()
 dosi_df["Innovation Name"] = dosi_df["Innovation Name"].str.rstrip()
 
-summary_df = pd.read_csv(fn_summary, converters={"Indicator Number": str})
-
-clusters_df = pd.read_csv(
-    fn_clusters,
-    skiprows=15,
-    nrows=28,
-    usecols=[8, 35, 36, 37, 38, 39],
-    encoding="ISO-8859-1",
-    header=0,
-)
-clusters_df.rename(
-    columns={clusters_df.columns[0]: "innovation code"}, inplace=True
-)  # If there is an error here, then there may be a column reference error, e.g. the first column of the csv file is empty and pd.red_csv skips it
-clusters_dict = {
-    col: clusters_df.loc[~clusters_df[col].isna(), "innovation code"].tolist()
-    for col in clusters_df.columns[1:]
-}
-
 early_df = pd.read_csv(fn_early, usecols=[0, 1])
 early_dict = dict(zip(early_df.iloc[:, 0], early_df.iloc[:, 1]))
 
 # Metadata / codes
-
 
 def convert_to_three_digit_notation(s):
     return re.sub(r"([a-zA-Z])(\d+)", lambda m: f"{m.group(1)}{int(m.group(2)):03}", s)
@@ -132,11 +137,6 @@ def FPLogValue_with_scaling(x, t0, Dt, s):
     Logistic function with vertical scaling.|
     """
     return s / (1 + np.exp(-np.log(81) * (x - t0) / Dt))
-
-
-st.set_page_config(layout="wide")  # add at the very top, before st.title
-
-st.title("Within innovations")
 
 # Create menu
 

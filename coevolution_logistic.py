@@ -11,6 +11,7 @@ from scipy.stats import linregress
 VERSION_FOR_SUMMARY_READING = "v27"
 VERSION_FOR_METADATA = "v25_withhatch_2"
 VERSION_FOR_DATA = "v27"
+VERSION_CLUSTER_DF = "innovation_list_HWLclusters_v3.0.xlsx"
 RENUMBER_METADATA_CODES = False
 PATH = "./data"
 
@@ -111,9 +112,9 @@ def get_dosi_data():
 
     # Cluster assignment
     clusters = ['digital', 'prosumer', 'health', 'sufficiency']
-    clusters_df = pd.read_excel(f"{PATH}/innovation_list_HWLclusters_v2.0_CW.xlsx")
+    clusters_df = pd.read_excel(f"{PATH}/{VERSION_CLUSTER_DF}")
     # Take only innovations with time series
-    clusters_df = clusters_df.loc[clusters_df['available adoption time series']==1]
+    clusters_df = clusters_df.loc[clusters_df['timeseries']==1]
     # Fill label for HATCH innovations from metadata
     #clusters_df['innovation_label'] = clusters_df['innovation_label'].fillna(
     #    clusters_df['innovation_name'].str.lower().map(metadata['Innovation Name']))
