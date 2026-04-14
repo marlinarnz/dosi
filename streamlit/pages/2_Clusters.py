@@ -13,84 +13,48 @@ import plotly.graph_objects as go
 
 from pathlib import Path
 
-hatch_clusters = {
-    "sufficiency": [
-        "Electric Bicycles",  # Ebikes
-        "Solar Photovoltaic",  # solar PV
-    ],
-    "digital": [
-        "Cellphones",  # Cellphones
-        "Home Computers",  # home computer
-        "Household Internet Access",  # internet access
-        "Microcomputers",  # microcomputers
-        "Podcasting",  # podcasting
-        "Real-Time Gross Settlement Adoption",  # realtime gross settlement
-        "Social Media Usage",  # social media usage
-    ],
-    "consume": [
-        "Cable TV",  # Cable TV
-        "Dishwashers",  # Dishwashers
-        "Electric Bicycles",  # Ebikes
-        "Home Air Conditioning",  # home AC
-        "Laundry Dryers",  # laundry dryers
-        "Microwaves",  # microwave oven
-        "Television",  # TV
-        "Washing Machines",  # wash machines
-    ],
-    "green growth": [
-        "Nox Pollution Controls (Boilers)",  # NOx pollution control
-        "Offshore Wind Energy",  # offshore wind
-        "Onshore Wind Energy",  # onshore wind
-        "Solar Photovoltaic",  # solar PV
-        "Wet Flue Gas Desulfurization Systems",  # FGD
-    ],
-    "health": ["Electric Bicycles"],  # Ebikes (as given)
-}
+
+st.set_page_config(layout="wide")  # add at the very top, before st.title
+
+st.title("Clusters")
+
 
 # Get the path of the current script (inside streamlit/)
 CURRENT_DIR = Path(__file__).parent.parent
+PATH = "../data"
 
 VERSION_FOR_DATA = "v27"
-VERSION_FOR_FITPARAMETERS = "v27"
+VERSION_FOR_FITPARAMETERS = "v28"
 VERSION_FOR_METADATA = "v25_withhatch_2"  # "v25" #
 YEAR_PADDING_FOR_PLOTTING = 10
 
-PATH = "../data"
-ONEDRIVE_PATH = (
-    "/mnt/c/Users/simon.destercke/IIASA/EDITS - FT25-1_PosTip/Data/HATCH files/"
-)
 
-fn_data = CURRENT_DIR / PATH / f"adjusted_datasets_{VERSION_FOR_DATA}.csv"
+version_data = st.text_input("Enter DoSI data file version to be used (must be > v26)", value=VERSION_FOR_DATA)
+version_summary = st.text_input("Enter summary data file version to be used (must be > v26)", value=VERSION_FOR_FITPARAMETERS)
 
+fn_data = CURRENT_DIR / PATH / f"adjusted_datasets_{version_data}.csv"
 fn_data_hatch = CURRENT_DIR / PATH / f"hatch/hatch_data_dosi_format.csv"
-fn_summary = CURRENT_DIR / PATH / f"""summary_table_{VERSION_FOR_FITPARAMETERS}.csv"""
+fn_summary = CURRENT_DIR / PATH / f"""summary_table_{version_summary}.csv"""
 fn_summary_hatch = CURRENT_DIR / PATH / f"""summary_table_HATCH_v27.csv"""
-fn_clusters = CURRENT_DIR / PATH / "PosTip_Clusters.csv"  # Summary file by Charlie
-fn_early = (
-    CURRENT_DIR / PATH / "EarlyAdopterRegions_perInnovation_21March.csv"
-)  # Early Adopting regions
+fn_clusters = CURRENT_DIR / PATH / "innovation_list_HWLclusters_v3.0.xlsx"
+fn_early = CURRENT_DIR / PATH / "EarlyAdopterRegions_perInnovation_21March.csv"  # Early Adopting regions
 fn_early_hatch = CURRENT_DIR / PATH / "hatch/hatch_early_dict.csv"  # Early Adopting regions
 fn_metadata = CURRENT_DIR / PATH / f"metadata_master_{VERSION_FOR_METADATA}.xlsx"
 
-dosi_df = pd.concat(
-    [
+dosi_df = pd.concat([
         pd.read_csv(fn_data, converters={"Indicator Number": str}),
         pd.read_csv(fn_data_hatch, converters={"Indicator Number": str}),
-    ]
-)
+])
 dosi_df["Value"] = pd.to_numeric(dosi_df["Value"], errors="coerce")
 dosi_df = dosi_df.dropna(subset=["Value"])
-
 # Correct for trailing spaces in the data
 dosi_df["Spatial Scale"] = dosi_df["Spatial Scale"].str.rstrip()
 dosi_df["Innovation Name"] = dosi_df["Innovation Name"].str.rstrip()
 
-summary_df = pd.concat(
-    [
+summary_df = pd.concat([
         pd.read_csv(fn_summary, converters={"Indicator Number": str}),
         pd.read_csv(fn_summary_hatch, converters={"Indicator Number": str}),
-    ]
-)
+])
 
 early_df = pd.concat(
     [pd.read_csv(fn_early, usecols=[0, 1]), pd.read_csv(fn_early_hatch, usecols=[0, 1])]
@@ -98,7 +62,6 @@ early_df = pd.concat(
 early_dict = dict(zip(early_df.iloc[:, 0], early_df.iloc[:, 1]))
 
 # Metadata / codes
-
 
 def convert_to_three_digit_notation(s):
     return re.sub(r"([a-zA-Z])(\d+)", lambda m: f"{m.group(1)}{int(m.group(2)):03}", s)
@@ -109,64 +72,39 @@ def read_metadata_table(fn, columns):
     df.iloc[:, 1] = df.iloc[:, 1].apply(convert_to_three_digit_notation)
     return df.set_index(df.columns[0])[df.columns[1]].to_dict()
 
-
 metadata = dict()
 metadata["Innovation Name"] = read_metadata_table(fn_metadata, "A,D")
 metadata["Spatial Scale"] = read_metadata_table(fn_metadata, "G,I")
-metadata["Indicator Number"] = read_metadata_table(
-    fn_metadata, "L,O"
-)  # Column M is the indicator name. Superfluous because maps 1-1 on indicator number
+metadata["Indicator Number"] = read_metadata_table(fn_metadata, "L,O")  # Column M is the indicator name. Superfluous because maps 1-1 on indicator number
 metadata["Description"] = read_metadata_table(fn_metadata, "R,S")
 metadata["Metric"] = read_metadata_table(fn_metadata, "V,W")
-
 for key, nested_dict in metadata.items():
     if isinstance(nested_dict, dict):  # Ensure the value is a dictionary
         metadata[key] = {
             k.lower() if isinstance(k, str) else k: v for k, v in nested_dict.items()
         }
 
-clusters_df = pd.read_csv(
-    fn_clusters,
-    skiprows=15,
-    nrows=28,
-    usecols=[8, 35, 36, 37, 38, 39],
-    encoding="ISO-8859-1",
-    header=0,
-)
-clusters_df.rename(
-    columns={clusters_df.columns[0]: "innovation code"}, inplace=True
-)  # If there is an error here, then there may be a column reference error, e.g. the first column of the csv file is empty and pd.red_csv skips it
+# Clusters
+clusters = ['digital', 'prosumer', 'health', 'sufficiency']
+clusters_df = pd.read_excel(fn_clusters)
 
-# remove first row of clusters_d
-clusters_df.drop(index=clusters_df.index[0], axis=0, inplace=True)
+# Update metadata innovation name label with cluster assignment file
+clusters_names = clusters_df.set_index("innovation_name")["innovation_label"].to_dict()
+metadata["Innovation Name"].update(clusters_names)
 
-clusters_dict = {
-    col: clusters_df.loc[~clusters_df[col].isna(), "innovation code"].tolist()
-    for col in clusters_df.columns[1:]
-}
-
-for cluster, technologies in hatch_clusters.items():
-    for technology in technologies:
-        clusters_dict[cluster].append(metadata["Innovation Name"][technology.lower()])
-
+clusters_dict = {}
+for c in clusters:
+    clusters_dict[c] = list(clusters_df.loc[
+        (clusters_df[c]==1) & (clusters_df['timeseries']==1), 'innovation_label'
+    ])
 
 # Attach codes to data file
-
-dosi_df["Innovation Code"] = (
-    dosi_df["Innovation Name"].str.lower().map(metadata["Innovation Name"])
-)
-dosi_df["Region Code"] = (
-    dosi_df["Spatial Scale"].str.lower().map(metadata["Spatial Scale"])
-)
+dosi_df["Innovation Code"] = dosi_df["Innovation Name"].str.lower().map(metadata["Innovation Name"])
+dosi_df["Region Code"] = dosi_df["Spatial Scale"].str.lower().map(metadata["Spatial Scale"])
 dosi_df["Early Adopter Code"] = dosi_df["Innovation Code"].map(early_dict)
-dosi_df["Indicator Code"] = (
-    dosi_df["Indicator Number"].str.lower().map(metadata["Indicator Number"])
-)
-dosi_df["Description Code"] = (
-    dosi_df["Description"].str.lower().map(metadata["Description"])
-)
-dosi_df["Metric Code"] = dosi_df["Metric"].str.lower().map(metadata["Metric"])
-
+dosi_df["Indicator Code"] = dosi_df["Indicator Number"].str.lower().map(metadata["Indicator Number"])
+dosi_df["Description Code"] = dosi_df["Description"].str.lower().map(metadata["Description"]).fillna("")
+dosi_df["Metric Code"] = dosi_df["Metric"].str.lower().map(metadata["Metric"]).fillna("")
 code_cols = [
         "Innovation Code",
         "Region Code",
@@ -184,10 +122,6 @@ def FPLogValue_with_scaling(x, t0, Dt, s):
     """
     return s / (1 + np.exp(-np.log(81) * (x - t0) / Dt))
 
-
-st.set_page_config(layout="wide")  # add at the very top, before st.title
-
-st.title("Clusters")
 
 # ──────────────────────────────────────────────────────────────
 # 1.  RADIO-BUTTON ROW  ────────────────────────────────────────
@@ -210,7 +144,7 @@ else:
 
 cluster = active_choice
 
-st.markdown(f"**Cluster:** `{cluster}`")
+#st.markdown(f"**Cluster:** `{cluster}`")
 
 # ──────────────────────────────────────────────────────────────
 # 2.  CHECKBOX GRID  (responsive 5-column layout)  ─────────────
@@ -246,7 +180,7 @@ for idx, label in enumerate(ALL_INNOVATION_CODES):
 # ──────────────────────────────────────────────────────────────
 # 3.  TOGGLE  ──────────────────────────────────────────────────
 # ----------------------------------------------------------------
-early_adopting_regions_only = st.toggle("Show only early-adopting regions", value=True)
+early_adopting_regions_only = st.toggle("Show only early-adopting regions", value=False)
 
 country_selection = st.multiselect(
     "OR Select regions to include [toggle above to the left]",

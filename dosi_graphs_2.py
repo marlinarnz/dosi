@@ -2,7 +2,6 @@
 
 import pandas as pd
 import numpy as np
-
 import re
 from sklearn.linear_model import LinearRegression
 from scipy.optimize import curve_fit, differential_evolution, minimize
@@ -13,25 +12,29 @@ from matplotlib.backends.backend_pdf import PdfPages
 
 from logfits_chatgpt_v1 import fit_logistic_3p
 
-VERSION = "v27"
-VERSION_FOR_FITS = "v26"
-VERSION_FOR_SUMMARY_READING = "v25"
+
+PATH = "data"
+VERSION = "v28" # Results version
+VERSION_FOR_SUMMARY_READING = "v27"
 VERSION_FOR_METADATA = "v25"
-VERSION_FOR_DATA = "v26"
+VERSION_FOR_DATA = "v27"
+
 SMALL_SUBSET = False  # Do you only want a small subset for testing?
-REDO_FITS = True
+REDO_FITS = False # Generate new pickle files with logistic fits
 RENUMBER_METADATA_CODES = False
 CREATE_PDFS = True
 
 LINE_COLOR_LOG = "blue"
 
-PATH = "/mnt/c/Users/simon.destercke/Documents/misc/iiasa/DoSI"
-fn_data = f"{PATH}/adjusted_datasets_{VERSION_FOR_DATA}.csv"
 
+#######################################
+### DoSI data
+#######################################
+
+fn_data = f"{PATH}/adjusted_datasets_{VERSION_FOR_DATA}.csv"
 adoptions_df = pd.read_csv(fn_data, converters={"Indicator Number": str})
 adoptions_df["Value"] = pd.to_numeric(adoptions_df["Value"], errors="coerce")
 adoptions_df = adoptions_df.dropna(subset=["Value"])
-
 # Correct for trailing spaces in the data
 adoptions_df["Spatial Scale"] = adoptions_df["Spatial Scale"].str.rstrip()
 adoptions_df["Innovation Name"] = adoptions_df["Innovation Name"].str.rstrip()
@@ -39,25 +42,26 @@ adoptions_df["Innovation Name"] = adoptions_df["Innovation Name"].str.rstrip()
 # For debugging: only subset
 if SMALL_SUBSET:
     adoptions_df = adoptions_df[
-        # adoptions_df["Innovation Name"].isin(["car sharing"])
+        adoptions_df["Innovation Name"].isin(["car sharing"])
         # adoptions_df["Indicator Number"].isin(["3.3", "3.5", "4.1"])
         # adoptions_df["Indicator Number"].isin(["1.1"])
-        adoptions_df["Metric"].isin(["market share"])
+        # adoptions_df["Metric"].isin(["market share"])
     ]
 
-fn_metadata = f"{PATH}/metadata_master_{VERSION_FOR_METADATA}.xlsx"
 
+#######################################
+### Metadata
+#######################################
 
 def convert_to_three_digit_notation(s):
     return re.sub(r"([a-zA-Z])(\d+)", lambda m: f"{m.group(1)}{int(m.group(2)):03}", s)
-
 
 def read_metadata_table(fn, columns):
     df = pd.read_excel(fn, usecols=columns, dtype=str).dropna().reset_index(drop=True)
     df.iloc[:, 1] = df.iloc[:, 1].apply(convert_to_three_digit_notation)
     return df.set_index(df.columns[0])[df.columns[1]].to_dict()
 
-
+fn_metadata = f"{PATH}/metadata_master_{VERSION_FOR_METADATA}.xlsx"
 categories_df = (
     pd.read_excel(fn_metadata, usecols="A,B", dtype=str).dropna().reset_index(drop=True)
 )
@@ -100,29 +104,51 @@ for key, nested_dict in metadata.items():
             k.lower() if isinstance(k, str) else k: v for k, v in nested_dict.items()
         }
 
+# Update metadata innovation name label with cluster assignment file
+clusters = pd.read_excel(f"{PATH}/innovation_list_HWLclusters_v3.0.xlsx")
+clusters_names = clusters.set_index("innovation_name")["innovation_label"].to_dict()
+metadata["Innovation Name"].update(clusters_names)
+# Also update categories, although that's not correct
+for inno, short in clusters_names.items():
+    if not inno in categories.keys():
+        categories[inno] = short
+
 group_vars = list(metadata.keys())
+print("data grouping performed on keys " + str(group_vars))
 
 # Failed attempt below to go for alphabetic ordering of codes
 grouped = adoptions_df.groupby(group_vars)
-
 codes = []
 groups = []
+missing_counter = 0
 # Loop through each group and create the code
 for group_name, group_data in grouped:
     groups.append(group_name)
-    codes.append(
-        "_".join(
-            [
-                metadata[group_vars[i]][group_name[i].lower()]
-                for i in range(len(metadata))
-            ]
+    try:
+        codes.append(
+            "_".join(
+                [
+                    metadata[group_vars[i]][group_name[i].lower()]
+                    for i in range(len(metadata))
+                ]
+            )
         )
-    )
+    except KeyError:
+        # Could not find the time series in metadata
+        # Assume the description or metric is missing
+        codes.append(
+            "_".join(
+                [
+                    metadata[group_vars[i]][group_name[i].lower()]
+                    for i in range(len(metadata) - 2)
+                ]
+            ) + "d_m_" + str(missing_counter)
+        )
 sorted_indices = sorted(range(len(codes)), key=lambda i: codes[i])
 
-group_vars.insert(3, "Indicator Name")  # Insert the indicator name after the number
 
-# Group the data
+# Group the data again
+group_vars.insert(3, "Indicator Name")  # Insert the indicator name after the number
 grouped = adoptions_df.groupby(group_vars)
 grouped_as_list = list(grouped)
 
@@ -130,6 +156,10 @@ scoring_table = pd.read_csv(
     f"""{PATH}/summary_table_{VERSION_FOR_SUMMARY_READING}.csv"""
 )
 
+
+#######################################
+### Fitting
+#######################################
 
 def FPLogFit(x, y, threshold=0, thresholdup=0):
     # Filter data based on the threshold conditions
@@ -353,13 +383,13 @@ if REDO_FITS:
     )
 
     # Save to Pickle files
-    results_logistic.to_pickle(f"results_logistic_{VERSION}.pkl")
-    results_exponential.to_pickle(f"results_exponential_{VERSION}.pkl")
-    results_linear.to_pickle(f"results_linear_{VERSION}.pkl")
+    results_logistic.to_pickle(f"{PATH}/results_logistic.pkl")
+    results_exponential.to_pickle(f"{PATH}/results_exponential.pkl")
+    results_linear.to_pickle(f"{PATH}/results_linear.pkl")
 else:
-    results_logistic = pd.read_pickle(f"results_logistic_{VERSION_FOR_FITS}.pkl")
-    results_exponential = pd.read_pickle(f"results_exponential_{VERSION_FOR_FITS}.pkl")
-    results_linear = pd.read_pickle(f"results_linear_{VERSION_FOR_FITS}.pkl")
+    results_logistic = pd.read_pickle(f"{PATH}/results_logistic.pkl")
+    results_exponential = pd.read_pickle(f"{PATH}/results_exponential.pkl")
+    results_linear = pd.read_pickle(f"{PATH}/results_linear.pkl")
 
 print(
     f"""{results_logistic["t0"].isnull().sum()} out of {len(results_logistic)} logistic fits failed"""
@@ -368,10 +398,13 @@ print(
     f"""{results_exponential["a"].isnull().sum()} out of {len(results_exponential)} exponential fits failed"""
 )
 
+
+#######################################
+### Plotting
+#######################################
+
 # Scatterplots
-
 LINE_X_BUFFER = 10
-
 DISTANCE_TO_MEAN_THRESHOLD = 0.4
 AUTOCORRELATION_THRESHOLD = 0.70
 K_COVERAGE_THRESHOLD = 0.2
@@ -389,13 +422,14 @@ COMMON_DATABASES_INDICATOR_CODES = [
 ]  # to be written to a separate pdf
 
 if CREATE_PDFS:
-    pdf_commondb = PdfPages(f"{PATH}/scatterplots_{VERSION}_COMMON.pdf")
-    pdf_other = PdfPages(f"{PATH}/scatterplots_{VERSION}_OTHER.pdf")
-    pdf_marketshares = PdfPages(f"{PATH}/scatterplots_{VERSION}_MARKETSHARES.pdf")
-    pdf_all = PdfPages(f"{PATH}/scatterplots_{VERSION}_ALL.pdf")
+    pdf_commondb = PdfPages(f"{PATH}/plots/scatterplots_{VERSION}_COMMON.pdf")
+    pdf_other = PdfPages(f"{PATH}/plots/scatterplots_{VERSION}_OTHER.pdf")
+    pdf_marketshares = PdfPages(f"{PATH}/plots/scatterplots_{VERSION}_MARKETSHARES.pdf")
+    pdf_all = PdfPages(f"{PATH}/plots/scatterplots_{VERSION}_ALL.pdf")
     pdf_allexceptmarkedfordeletion = PdfPages(
-        f"{PATH}/scatterplots_{VERSION}_ALLexceptmarkedfordeletion.pdf"
+        f"{PATH}/plots/scatterplots_{VERSION}_ALLexceptmarkedfordeletion.pdf"
     )
+
 
 adjusted_dfs = []  # For storing the adjusted data frames
 
@@ -1100,7 +1134,7 @@ summary_df_split_of_results.to_csv(
 summary_df["Category_letters"] = summary_df["Category"].str.extract(r"^([A-Za-z]+)")
 
 # Create summary plot
-summary_plot_pdf_fn = f"{PATH}/summary_plot_{VERSION}.pdf"
+summary_plot_pdf_fn = f"{PATH}/plots/summary_plot_{VERSION}.pdf"
 with PdfPages(summary_plot_pdf_fn) as pdf:
 
     # Group data by letters
@@ -1120,6 +1154,7 @@ with PdfPages(summary_plot_pdf_fn) as pdf:
     pdf.savefig()
     plt.close()
 
+'''
 # Write the criteria to a text file
 source_file = __file__  # Replace with your .py file
 output_file = f"{PATH}/criteria_as_encoded_{VERSION}.txt"
@@ -1152,3 +1187,6 @@ with open(output_file, "w") as file:
     file.writelines(extracted_code)
 
 print(f"{PATH}/Extracted code written to {output_file}")
+'''
+
+print("Execution finished")

@@ -18,7 +18,7 @@ from pathlib import Path
 CURRENT_DIR = Path(__file__).parent.parent
 
 VERSION_FOR_DATA = "v27"
-VERSION_FOR_FITPARAMETERS = "v27"
+VERSION_FOR_FITPARAMETERS = "v28"
 VERSION_FOR_METADATA = "v25"
 YEAR_PADDING_FOR_PLOTTING = 10
 PATH = "../data"
@@ -51,20 +51,19 @@ except FileNotFoundError:
     summary_df = load_summary(VERSION_FOR_FITPARAMETERS)
 
 # Load supplementary data
-fn_early = (
-    CURRENT_DIR / PATH / "EarlyAdopterRegions_perInnovation_21March.csv"
-)  # Early Adopting regions
+fn_early = CURRENT_DIR / PATH / "EarlyAdopterRegions_perInnovation_21March.csv"  # Early Adopting regions
 fn_metadata = CURRENT_DIR / PATH / f"metadata_master_{VERSION_FOR_METADATA}.xlsx"
+fn_clusters = CURRENT_DIR / PATH / "innovation_list_HWLclusters_v3.0.xlsx"
 
 dosi_df["Value"] = pd.to_numeric(dosi_df["Value"], errors="coerce")
 dosi_df = dosi_df.dropna(subset=["Value"])
-
 # Correct for trailing spaces in the data
 dosi_df["Spatial Scale"] = dosi_df["Spatial Scale"].str.rstrip()
 dosi_df["Innovation Name"] = dosi_df["Innovation Name"].str.rstrip()
 
 early_df = pd.read_csv(fn_early, usecols=[0, 1])
 early_dict = dict(zip(early_df.iloc[:, 0], early_df.iloc[:, 1]))
+
 
 # Metadata / codes
 
@@ -93,6 +92,12 @@ for key, nested_dict in metadata.items():
         metadata[key] = {
             k.lower() if isinstance(k, str) else k: v for k, v in nested_dict.items()
         }
+
+# Update metadata and early adopt innovation name label with cluster assignment file
+clusters = pd.read_excel(fn_clusters)
+clusters_names = clusters.set_index("innovation_name")["innovation_label"].to_dict()
+metadata["Innovation Name"].update(clusters_names)
+early_dict.update({code: 0 for code in clusters_names.values() if not code in early_dict.keys()})
 
 # Attach codes to data file
 
@@ -150,23 +155,19 @@ early_adopting_region_code = early_dict[
 ]
 
 other_region_codes = list(
-    map(
-        metadata["Spatial Scale"].get,
-        [
-            s.lower()
-            for s in dosi_df[dosi_df["Innovation Name"] == selected_innovation][
-                "Spatial Scale"
-            ]
-            .unique()
-            .tolist()
-        ],
-    )
-)
+    map(metadata["Spatial Scale"].get,
+        [s.lower()
+         for s in dosi_df[dosi_df["Innovation Name"] == selected_innovation]["Spatial Scale"
+            ].unique().tolist()
+        ]))
 
 
 # function for reverse dictionary, taking the first element
 def rev_dict(dictionary: dict, label):
-    return next(key for key, value in dictionary.items() if value == label)
+    try:
+        return next(key for key, value in dictionary.items() if value == label)
+    except StopIteration:
+        return list(dictionary.keys())[0]
 
 
 with col2:
@@ -226,6 +227,8 @@ def build_plot(innovation_df, innovation_summary_df) -> go.Figure:
 
     year_min = innovation_df["Year"].min() - YEAR_PADDING_FOR_PLOTTING
     year_max = innovation_df["Year"].max() + YEAR_PADDING_FOR_PLOTTING
+    if not isinstance(year_min, int): year_min = 2000 - YEAR_PADDING_FOR_PLOTTING
+    if not isinstance(year_max, int): year_max = 2000 + YEAR_PADDING_FOR_PLOTTING
 
     years_for_plotting = np.linspace(
         year_min, year_max, (year_max - year_min) + 1

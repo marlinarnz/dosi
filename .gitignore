@@ -3,3 +3,7 @@
 .vscode/
 __pycache__/
 data/results_coevolution_logistic_all.csv
+data/results_exponential.pkl
+data/results_linear.pkl
+data/results_logistic.pkl
+data/plots/

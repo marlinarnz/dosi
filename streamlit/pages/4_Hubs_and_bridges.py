@@ -13,7 +13,7 @@ st.title("Hubs and bridges")
 # load data
 # Get the path of the current script (inside streamlit/)
 ST_DIR = Path(__file__).parent.parent
-VERSION_FOR_SUMMARY_READING = "v27"
+VERSION_FOR_SUMMARY_READING = "v28"
 VERSION_CLUSTER_DF = "innovation_list_HWLclusters_v3.0.xlsx"
 
 version = st.text_input("Enter summary data file version to be used (must be > v26)", value=VERSION_FOR_SUMMARY_READING)
