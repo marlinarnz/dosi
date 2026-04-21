@@ -21,7 +21,8 @@ version = st.text_input("Enter summary data file version to be used (must be > v
 # Load logfit estimation summary
 @st.cache_data
 def load_data(version):
-    return pd.read_csv(ST_DIR / f"../data/summary_table_{version}.csv")
+    print(ST_DIR)
+    return pd.read_csv(ST_DIR / f"../data/summary_table_{version}.csv", converters={"Indicator Number": str})
 try:
     data_df = load_data(version)
 except FileNotFoundError:
@@ -92,34 +93,34 @@ else:
     mask = (data_df['Indicator Number']==indicator_radio) \
         & ((data_df['Innovation Name'].str.lower()).isin(
             clusters_df.loc[clusters_df[analysis_radio]==1, 'innovation_name'].str.lower()))
-spatials = sorted(list(data_df.loc[mask, 'Spatial Scale'].unique()))
+
+available_spatial = sorted(list(data_df.loc[mask, 'Spatial Scale'].unique()))
 
 N_COLS_SPATIAL = 8
 st.subheader("Spatial scales to display:")
 cols_spatial = st.columns(N_COLS_SPATIAL)
 spatial_states = {}
-for idx, label in enumerate(spatials):
+for idx, label in enumerate(available_spatial):
     with cols_spatial[idx % N_COLS_SPATIAL]:
-        spatial_states[label] = st.checkbox(label, value=False)
+        spatial_states[label] = st.checkbox(label, value=True, key='s_'+label)
 
-innos = sorted(list(data_df.loc[
-    mask & data_df['Spatial Scale'].isin([s for s,state in spatial_states.items() if state==True])
-    , 'Innovation Name'
-].unique()))
-
-N_COLS_INNOS = 6
-st.subheader(analysis_radio+" innovations to illustrate:")
-cols_innos = st.columns(N_COLS_INNOS)
-inno_states = {}
-for idx, label in enumerate(innos):
-    with cols_innos[idx % N_COLS_INNOS]:
-        inno_states[label] = st.checkbox(label, value=True)
+#N_COLS_INNOS = 6
+#st.subheader(analysis_radio+" innovations to illustrate:")
+#cols_innos = st.columns(N_COLS_INNOS)
+#inno_states = {}
+#for idx, label in enumerate(
+#        sorted(list(data_df.loc[mask & data_df['Spatial Scale'].isin(
+#            [s for s,state in spatial_states.items() if state==True]
+#            ), 'Innovation Name'].unique()))
+#        ):
+#    with cols_innos[idx % N_COLS_INNOS]:
+#        inno_states[label] = st.checkbox(label, value=True, key='i_'+label)
 
 # ──────────────────────────────────────────────────────────────
 # 3.  PLOTLY FIGURE  ───────────────────────────────────────────
 # --------------------------------------------------------------
 
-def build_plot(df, analysis, cluster, indicator, metric, spatial_states, x_min, x_max, y_min, y_max) -> go.Figure:
+def build_plot(df, analysis, cluster, indicator, metric, x_min, x_max, y_min, y_max) -> go.Figure:
     
     # Filter for cluster and innovation indicator
     if cluster in clusters:
@@ -132,7 +133,7 @@ def build_plot(df, analysis, cluster, indicator, metric, spatial_states, x_min, 
     
     # Find hubs or bridges and save as marker shape
     analysis_innos = list(clusters_df.loc[clusters_df[analysis]==1, 'innovation_name'].str.lower())
-    analysis_innos = [i for i in analysis_innos if i in inno_states.keys() and inno_states[i]==True]
+    #analysis_innos = [i for i in analysis_innos if i in inno_states.keys() and inno_states[i]==True]
     data['marker'] = 'circle'
     data.loc[(data['Innovation Name'].str.lower()).isin(analysis_innos), 'marker'] = 'cross'
     
@@ -153,7 +154,7 @@ def build_plot(df, analysis, cluster, indicator, metric, spatial_states, x_min, 
         hover_data={
             "Innovation Name": True,
             "Spatial Scale": True,
-            "marker": False
+            "marker": True
         },
         labels={"diff": f"time lag to {analysis}s", metric: metric}
     )
@@ -166,15 +167,13 @@ def build_plot(df, analysis, cluster, indicator, metric, spatial_states, x_min, 
 
     #fig.update_layout(legend_title="Spatial Scale", hovermode="closest")
     fig.update_layout(
-        legend=dict(
-            itemclick="toggleothers",  # click legend → highlight only that group
-            itemdoubleclick="toggle"
-        ))
+        legend=dict(itemclick="toggleothers", itemdoubleclick="toggle"),
+        legend_title=f"Markers: cross={analysis}, circle=others")
     
     return fig
 
-x_min, x_max = st.slider("X range", -50, 100, (-10, 50))
+x_min, x_max = st.slider("X range", -50, 200, (-10, 50))
 y_min, y_max = st.slider("Y range", -1, 50, (-1, 5))
 
-fig = build_plot(data_df, analysis_radio, cluster_radio, indicator_radio, metric_radio, spatial_states, x_min, x_max, y_min, y_max)
+fig = build_plot(data_df, analysis_radio, cluster_radio, indicator_radio, metric_radio, x_min, x_max, y_min, y_max)
 st.plotly_chart(fig, width='stretch')

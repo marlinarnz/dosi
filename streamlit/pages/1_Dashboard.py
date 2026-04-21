@@ -17,9 +17,9 @@ from pathlib import Path
 # Get the path of the current script (inside streamlit/)
 CURRENT_DIR = Path(__file__).parent.parent
 
-VERSION_FOR_DATA = "v27"
+VERSION_FOR_DATA = "v28"
 VERSION_FOR_FITPARAMETERS = "v28"
-VERSION_FOR_METADATA = "v25"
+VERSION_FOR_METADATA = "v26"
 YEAR_PADDING_FOR_PLOTTING = 10
 PATH = "../data"
 
@@ -28,19 +28,39 @@ st.set_page_config(layout="wide")  # add at the very top, before st.title
 
 st.title("Within innovations")
 
-version_data = st.text_input("Enter DoSI data file version to be used (must be > v26)", value=VERSION_FOR_DATA)
-version_summary = st.text_input("Enter summary data file version to be used (must be > v26)", value=VERSION_FOR_FITPARAMETERS)
+# Choose DoSI source
+source = st.radio(
+    "Choose data source",
+    ["Repo file", "Upload local file"]
+)
 
-# Load data and logfit estimation summary
+# Load data
+dosi_df = None
 @st.cache_data
 def load_data(version_data):
     return pd.read_csv(CURRENT_DIR / PATH / f"adjusted_datasets_{version_data}.csv", converters={"Indicator Number": str})
-try:
-    dosi_df = load_data(version_data)
-except FileNotFoundError:
-    st.error(f"⚠️ Data version '{version_data}' not found. Please enter a valid version. Otherwise, the default {VERSION_FOR_DATA} is used.")
-    dosi_df = load_data(VERSION_FOR_DATA)
+if source == "Upload local file":
+    uploaded_file = st.file_uploader(
+        "Upload local DoSI data file",
+        type=["csv"]
+    )
+    if uploaded_file is not None:
+        dosi_df = pd.read_csv(uploaded_file, converters={"Indicator Number": str})
+else:
+    version_data = st.text_input(
+        "Enter DoSI data file version to be used (must be > v26)",
+        value=VERSION_FOR_DATA
+    )
+    try:
+        dosi_df = load_data(version_data)
+    except FileNotFoundError:
+        st.error(f"⚠️ Data version '{version_data}' not found. Please enter a valid version. Otherwise, the default {VERSION_FOR_DATA} is used.")
+        dosi_df = load_data(VERSION_FOR_DATA)
+if dosi_df is None:
+    st.stop()
 
+# Load logfit estimation summary
+version_summary = st.text_input("Enter summary data file version to be used (must be > v26)", value=VERSION_FOR_FITPARAMETERS)
 @st.cache_data
 def load_summary(version_summary):
     return pd.read_csv(CURRENT_DIR / PATH / f"summary_table_{version_summary}.csv", converters={"Indicator Number": str})

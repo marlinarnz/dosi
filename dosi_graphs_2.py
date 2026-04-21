@@ -3,6 +3,7 @@
 import pandas as pd
 import numpy as np
 import re
+import warnings
 from sklearn.linear_model import LinearRegression
 from scipy.optimize import curve_fit, differential_evolution, minimize
 from scipy.stats import linregress
@@ -12,32 +13,50 @@ from matplotlib.backends.backend_pdf import PdfPages
 
 from logfits_chatgpt_v1 import fit_logistic_3p
 
+warnings.filterwarnings("ignore", category=RuntimeWarning)
+
 
 PATH = "data"
 VERSION = "v28" # Results version
 VERSION_FOR_SUMMARY_READING = "v27"
-VERSION_FOR_METADATA = "v25"
-VERSION_FOR_DATA = "v27"
+VERSION_FOR_METADATA = "v26"
+VERSION_FOR_DATA = "v28"
 
 SMALL_SUBSET = False  # Do you only want a small subset for testing?
-REDO_FITS = False # Generate new pickle files with logistic fits
+REDO_FITS = True # Generate new pickle files with logistic fits
 RENUMBER_METADATA_CODES = False
 CREATE_PDFS = True
 
 LINE_COLOR_LOG = "blue"
 
 
+clusters = pd.read_excel(f"{PATH}/innovation_list_HWLclusters_v3.0.xlsx")
+
 #######################################
 ### DoSI data
 #######################################
 
+# DoSI
 fn_data = f"{PATH}/adjusted_datasets_{VERSION_FOR_DATA}.csv"
-adoptions_df = pd.read_csv(fn_data, converters={"Indicator Number": str})
-adoptions_df["Value"] = pd.to_numeric(adoptions_df["Value"], errors="coerce")
-adoptions_df = adoptions_df.dropna(subset=["Value"])
+dosi = pd.read_csv(fn_data, converters={"Indicator Number": str})
+dosi["Value"] = pd.to_numeric(dosi["Value"], errors="coerce")
+dosi = dosi.dropna(subset=["Value"])
 # Correct for trailing spaces in the data
-adoptions_df["Spatial Scale"] = adoptions_df["Spatial Scale"].str.rstrip()
-adoptions_df["Innovation Name"] = adoptions_df["Innovation Name"].str.rstrip()
+dosi["Spatial Scale"] = dosi["Spatial Scale"].str.rstrip()
+dosi["Innovation Name"] = dosi["Innovation Name"].str.rstrip()
+
+# HATCH
+fn_data = f"{PATH}/hatch/hatch_data_dosi_format.csv"
+hatch = pd.read_csv(fn_data, converters={"Indicator Number": str})
+hatch["Value"] = pd.to_numeric(hatch["Value"], errors="coerce")
+hatch = hatch.dropna(subset=["Value"])
+hatch["Spatial Scale"] = hatch["Spatial Scale"].str.rstrip()
+hatch["Innovation Name"] = hatch["Innovation Name"].str.rstrip()
+# Filter HATCH for innovations used in clusters
+hatch = hatch.loc[(hatch['Innovation Name'].str.lower()
+                   ).isin(clusters['innovation_name'].str.lower())]
+
+adoptions_df = pd.concat([dosi, hatch]).reset_index(drop=True)
 
 # For debugging: only subset
 if SMALL_SUBSET:
@@ -105,7 +124,6 @@ for key, nested_dict in metadata.items():
         }
 
 # Update metadata innovation name label with cluster assignment file
-clusters = pd.read_excel(f"{PATH}/innovation_list_HWLclusters_v3.0.xlsx")
 clusters_names = clusters.set_index("innovation_name")["innovation_label"].to_dict()
 metadata["Innovation Name"].update(clusters_names)
 # Also update categories, although that's not correct
@@ -436,7 +454,7 @@ adjusted_dfs = []  # For storing the adjusted data frames
 # Loop through each group and create a scatterplot
 for i in range(len(grouped)):
 
-    print(f"\rProgress: {(i*100.0/len(grouped)):.1g}%", end="", flush=True)
+    print(f"\rProgress: {int(i*100/len(grouped))}%", end="", flush=True)
 
     sorted_index = sorted_indices[i]
 
@@ -852,6 +870,7 @@ for i in range(len(grouped)):
     )
 
     summary_table_rows.append(summary_table_dict)
+
 
 if CREATE_PDFS:
     pdf_commondb.close()

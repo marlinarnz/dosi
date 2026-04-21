@@ -1,16 +1,19 @@
 # Script from Marlin to find co-evolutions in logistic fits
 
 import re
+import warnings
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LinearRegression
 from scipy.optimize import curve_fit, differential_evolution, minimize
 from scipy.stats import linregress
 
+warnings.filterwarnings("ignore", category=RuntimeWarning)
 
-VERSION_FOR_SUMMARY_READING = "v27"
-VERSION_FOR_METADATA = "v25_withhatch_2"
-VERSION_FOR_DATA = "v27"
+
+VERSION_FOR_SUMMARY_READING = "v28"
+VERSION_FOR_METADATA = "v26"
+VERSION_FOR_DATA = "v28"
 VERSION_CLUSTER_DF = "innovation_list_HWLclusters_v3.0.xlsx"
 RENUMBER_METADATA_CODES = False
 PATH = "./data"
@@ -33,7 +36,7 @@ def get_dosi_data():
         .str.replace('organic food consumption', 'organic food')
     
     # Load HATCH
-    fn_data = f"{PATH}/hatch_data_dosi_format.csv"
+    fn_data = f"{PATH}/hatch/hatch_data_dosi_format.csv"
     hatch = pd.read_csv(fn_data, converters={"Indicator Number": str})
     hatch["Value"] = pd.to_numeric(hatch["Value"], errors="coerce")
     hatch = hatch.dropna(subset=["Value"])

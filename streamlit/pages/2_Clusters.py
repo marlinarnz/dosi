@@ -23,9 +23,9 @@ st.title("Clusters")
 CURRENT_DIR = Path(__file__).parent.parent
 PATH = "../data"
 
-VERSION_FOR_DATA = "v27"
+VERSION_FOR_DATA = "v28"
 VERSION_FOR_FITPARAMETERS = "v28"
-VERSION_FOR_METADATA = "v25_withhatch_2"  # "v25" #
+VERSION_FOR_METADATA = "v26"
 YEAR_PADDING_FOR_PLOTTING = 10
 
 
