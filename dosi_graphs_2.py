@@ -154,6 +154,7 @@ for group_name, group_data in grouped:
     except KeyError:
         # Could not find the time series in metadata
         # Assume the description or metric is missing
+        print(f"Couldn't find {group_name} in metadata")
         codes.append(
             "_".join(
                 [

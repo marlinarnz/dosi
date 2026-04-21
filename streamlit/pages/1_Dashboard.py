@@ -210,7 +210,7 @@ innovation_df = dosi_df[
 ].copy()
 
 
-NUMBER_OF_COLUMNS = 10  # Number of columns in the grid
+NUMBER_OF_COLUMNS = 8  # Number of columns in the grid
 
 st.subheader("Indicators included:")
 cols = st.columns(NUMBER_OF_COLUMNS)
@@ -260,78 +260,79 @@ def build_plot(innovation_df, innovation_summary_df) -> go.Figure:
     fig = go.Figure()
 
     for i, code in enumerate(innovation_df["Indicator Number"].unique()):
-        t0 = innovation_summary_df[innovation_summary_df["Indicator Number"] == code][
-            "log_t0"
-        ].iloc[0]
-        Dt = innovation_summary_df[innovation_summary_df["Indicator Number"] == code][
-            "log_Dt"
-        ].iloc[0]
-        K = innovation_summary_df[innovation_summary_df["Indicator Number"] == code][
-            "log_K"
-        ].iloc[0]
+        if code in list(innovation_summary_df["Indicator Number"].unique()):
+            t0 = innovation_summary_df[innovation_summary_df["Indicator Number"] == code][
+                "log_t0"
+            ].iloc[0]
+            Dt = innovation_summary_df[innovation_summary_df["Indicator Number"] == code][
+                "log_Dt"
+            ].iloc[0]
+            K = innovation_summary_df[innovation_summary_df["Indicator Number"] == code][
+                "log_K"
+            ].iloc[0]
 
-        # Assign color from the color cycle
-        color = colors[
-            i % len(colors)
-        ]  # Cycle through the colors if more codes than colors
+            # Assign color from the color cycle
+            color = colors[
+                i % len(colors)
+            ]  # Cycle through the colors if more codes than colors
 
-        # Add the points trace (same color as line)
-        fig.add_trace(
-            go.Scatter(
-                x=innovation_df[innovation_df["Indicator Number"] == code]["Year"],
-                y=innovation_df[innovation_df["Indicator Number"] == code]["Value"] / K,
-                mode="markers",
-                name=f"""{code} {metadata['Indicator Name'][code]} (Metric {innovation_df[innovation_df["Indicator Number"] == code]["Metric"].unique().tolist()}) K-normalized data """,  # This can be the same name to link with the line in the legend
-                hovertemplate=f"""{code} {metadata['Indicator Name'][code]} (Metric {innovation_df[innovation_df["Indicator Number"] == code]["Metric"].unique().tolist()}) <br>{code} Point<br>Year=%{{x:.0f}}<br>value=%{{y:.2f}}<extra></extra>""",  # Custom tooltip
-                marker=dict(size=8, color=color),  # Same color for points as the line
+            # Add the points trace (same color as line)
+            fig.add_trace(
+                go.Scatter(
+                    x=innovation_df[innovation_df["Indicator Number"] == code]["Year"],
+                    y=innovation_df[innovation_df["Indicator Number"] == code]["Value"] / K,
+                    mode="markers",
+                    name=f"""{code} {metadata['Indicator Name'][code]} (Metric {innovation_df[innovation_df["Indicator Number"] == code]["Metric"].unique().tolist()}) K-normalized data """,  # This can be the same name to link with the line in the legend
+                    hovertemplate=f"""{code} {metadata['Indicator Name'][code]} (Metric {innovation_df[innovation_df["Indicator Number"] == code]["Metric"].unique().tolist()}) <br>{code} Point<br>Year=%{{x:.0f}}<br>value=%{{y:.2f}}<extra></extra>""",  # Custom tooltip
+                    marker=dict(size=8, color=color),  # Same color for points as the line
+                )
             )
-        )
 
-        fig.add_trace(
-            go.Scatter(
-                x=years_for_plotting,
-                y=FPLogValue_with_scaling(years_for_plotting, t0, Dt, K) / K,
-                mode="lines",
-                name=code,  # Legend label
-                showlegend=False,
-                line=dict(color=color, width=2),
-                hovertemplate=f"""{code} {metadata['Indicator Name'][code]} <br>{code} (Metric {innovation_df[innovation_df["Indicator Number"] == code]["Metric"].unique().tolist()}) <br>Year=%{{x:.0f}}<br>Value=%{{y:.2f}}<br>Dt={Dt:.0f} t0={t0:.0f} K={K:.2f}<extra></extra>""",  # Custom tooltip
+            fig.add_trace(
+                go.Scatter(
+                    x=years_for_plotting,
+                    y=FPLogValue_with_scaling(years_for_plotting, t0, Dt, K) / K,
+                    mode="lines",
+                    name=code,  # Legend label
+                    showlegend=False,
+                    line=dict(color=color, width=2),
+                    hovertemplate=f"""{code} {metadata['Indicator Name'][code]} <br>{code} (Metric {innovation_df[innovation_df["Indicator Number"] == code]["Metric"].unique().tolist()}) <br>Year=%{{x:.0f}}<br>Value=%{{y:.2f}}<br>Dt={Dt:.0f} t0={t0:.0f} K={K:.2f}<extra></extra>""",  # Custom tooltip
+                )
             )
-        )
 
-        fig.update_layout(
-            title="Innovation "
-            + selected_innovation
-            + " in "
-            + rev_dict(metadata["Spatial Scale"], selected_spatial_scale_code),
-            xaxis_title="Year",
-            yaxis_title="K-normalized value",
-            # hovermode='x unified'
-            yaxis=dict(range=[0, 1.2]),  # Set the y-axis limits to [0, 5]
-        )
+            fig.update_layout(
+                title="Innovation "
+                + selected_innovation
+                + " in "
+                + rev_dict(metadata["Spatial Scale"], selected_spatial_scale_code),
+                xaxis_title="Year",
+                yaxis_title="K-normalized value",
+                # hovermode='x unified'
+                yaxis=dict(range=[0, 1.2]),  # Set the y-axis limits to [0, 5]
+            )
 
-        # centroid of the scatter points
-        x_centroid = innovation_df.loc[
-            innovation_df["Indicator Number"] == code, "Year"
-        ].mean()
-        y_centroid = (
-            innovation_df.loc[innovation_df["Indicator Number"] == code, "Value"] / K
-        ).mean()
+            # centroid of the scatter points
+            x_centroid = innovation_df.loc[
+                innovation_df["Indicator Number"] == code, "Year"
+            ].mean()
+            y_centroid = (
+                innovation_df.loc[innovation_df["Indicator Number"] == code, "Value"] / K
+            ).mean()
 
-        fig.add_annotation(
-            x=x_centroid,
-            y=y_centroid,
-            text=f"""{code} {metadata['Indicator Name'][code]}""",
-            showarrow=False,
-            xanchor="center",
-            yanchor="middle",
-            font=dict(color=color),  # label colour = line colour
-        )
+            fig.add_annotation(
+                x=x_centroid,
+                y=y_centroid,
+                text=f"""{code} {metadata['Indicator Name'][code]}""",
+                showarrow=False,
+                xanchor="center",
+                yanchor="middle",
+                font=dict(color=color),  # label colour = line colour
+            )
 
-        fig.update_layout(showlegend=False)  # put this once, just before `return fig`
+            fig.update_layout(showlegend=False)  # put this once, just before `return fig`
 
-        # ⬆️ add this *once* after all traces and just before returning the figure
-        fig.update_layout(height=900)  # make the plot taller
+            # ⬆️ add this *once* after all traces and just before returning the figure
+            fig.update_layout(height=900)  # make the plot taller
 
     return fig
 
