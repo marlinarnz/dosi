@@ -17,10 +17,10 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 
 PATH = "data"
-VERSION = "v28" # Results version
-VERSION_FOR_SUMMARY_READING = "v27"
+VERSION = "v29" # Results version
+VERSION_FOR_SUMMARY_READING = "v28"
 VERSION_FOR_METADATA = "v26"
-VERSION_FOR_DATA = "v28"
+VERSION_FOR_DATA = "v30"
 
 SMALL_SUBSET = False  # Do you only want a small subset for testing?
 REDO_FITS = True # Generate new pickle files with logistic fits
@@ -153,16 +153,25 @@ for group_name, group_data in grouped:
         )
     except KeyError:
         # Could not find the time series in metadata
-        # Assume the description or metric is missing
-        print(f"Couldn't find {group_name} in metadata")
-        codes.append(
-            "_".join(
-                [
-                    metadata[group_vars[i]][group_name[i].lower()]
-                    for i in range(len(metadata) - 2)
-                ]
-            ) + "d_m_" + str(missing_counter)
-        )
+        try:
+            # Assume the description or metric is missing
+            print(f"Couldn't find {group_name} in metadata")
+            codes.append(
+                "_".join(
+                    [
+                        metadata[group_vars[i]][group_name[i].lower()]
+                        for i in range(len(metadata) - 2)
+                    ]
+                ) + "d_m_" + str(missing_counter)
+            )
+        except KeyError:
+            # Timeseries does not exist in cluster file. Drop data.
+            print(f"Skipped {group_name}")
+            groups = groups[:-1]
+            mask = (adoptions_df[group_vars[0]]==group_name[0])
+            for i in range(1, len(group_vars)):
+                mask &= (adoptions_df[group_vars[i]]==group_name[i])
+            adoptions_df = adoptions_df.loc[~(mask)]
 sorted_indices = sorted(range(len(codes)), key=lambda i: codes[i])
 
 

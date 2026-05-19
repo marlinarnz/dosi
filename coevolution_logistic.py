@@ -11,7 +11,7 @@ from scipy.stats import linregress
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 
-VERSION_FOR_SUMMARY_READING = "v28"
+VERSION_FOR_SUMMARY_READING = "v29"
 VERSION_FOR_METADATA = "v26"
 VERSION_FOR_DATA = "v30"
 VERSION_CLUSTER_DF = "innovation_list_HWLclusters_v3.0.xlsx"
