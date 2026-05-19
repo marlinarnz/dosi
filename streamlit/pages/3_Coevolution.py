@@ -85,7 +85,7 @@ def build_plot(df, spatial, cluster, indicator, metric, grouper, best_fits, n_be
                    .groupby(['cluster', 'indicator', 'spatial', 'i_innovation'])\
                    .apply(lambda g: g.loc[g['i_innovation']!=g['j_innovation']].head(n_best_fits))\
                    .reset_index(drop=True)
-    #data[metric] = data[metric].fillna(0).clip(lower=0)
+    data = data.loc[data[metric].notna()]
     
     #print('Number of innovations x axis: {}; y axis {}'.format(len(data['i_ID'].unique()), len(data['j_ID'].unique())))
     grouped = data.groupby(['i_'+grouper, 'j_'+grouper])
