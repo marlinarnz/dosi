@@ -17,10 +17,9 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 
 PATH = "data"
-VERSION = "v29" # Results version
-VERSION_FOR_SUMMARY_READING = "v28"
-VERSION_FOR_METADATA = "v26"
 VERSION_FOR_DATA = "v30"
+VERSION_FOR_SUMMARY_READING = "v30"
+VERSION_FOR_METADATA = "v26"
 
 SMALL_SUBSET = False  # Do you only want a small subset for testing?
 REDO_FITS = True # Generate new pickle files with logistic fits
@@ -888,7 +887,7 @@ if CREATE_PDFS:
     pdf_other.close()
     pdf_all.close()
     pdf_allexceptmarkedfordeletion.close()
-    print(f"Scatterplots version {VERSION} saved to pdf.")
+    print(f"Scatterplots version {VERSION_FOR_DATA} saved to pdf.")
 
 summary_df = pd.DataFrame(summary_table_rows)
 
@@ -1077,7 +1076,7 @@ summary_df_merged = summary_df.merge(
 print(f"There are {sum(summary_df_merged['PDF page'].isna())} unmatched rows")
 
 summary_df_merged.drop(columns="code_without_indicator_name").to_csv(
-    f"""{PATH}/summary_table_{VERSION}.csv""", float_format="%.5g", index=False
+    f"""{PATH}/summary_table_{VERSION_FOR_DATA}.csv""", float_format="%.5g", index=False
 )
 
 # Write unmatched to csv
@@ -1088,61 +1087,10 @@ scoring_on_summary[
         )
     )
 ].to_csv(
-    f"""{PATH}/summary_table_original_scoring_not_matched_{VERSION}.csv""",
+    f"""{PATH}/summary_table_original_scoring_not_matched_{VERSION_FOR_DATA}.csv""",
     float_format="%.5g",
     index=False,
 )
-
-# # def clean_text(text):
-# #     if isinstance(text, str):  # Ensure it's a string before processing
-# #         return re.sub(
-# #             r"[^A-Za-z0-9%#]", "", text
-# #         ).lower()  # Keep only letters, numbers, % and #
-# #     return text  # Return as is if not a string
-
-
-# # columns_to_clean_for_matching = group_vars
-# # cleaned_columns_names = [s + "_clean" for s in columns_to_clean_for_matching]
-# # replacement_dict = dict(zip(columns_to_clean_for_matching, cleaned_columns_names))
-
-# # # Replace elements in a that are found in b with corresponding values from c
-# # group_vars_clean_names = [
-# #     replacement_dict[item] if item in replacement_dict else item for item in group_vars
-# # ]
-
-# # summary_df[cleaned_columns_names] = summary_df[columns_to_clean_for_matching].applymap(
-# #     lambda x: clean_text(str(x))
-# # )
-# # scoring_on_summary[cleaned_columns_names] = scoring_on_summary[
-# #     columns_to_clean_for_matching
-# # ].applymap(lambda x: clean_text(str(x)))
-
-# # # DEBUG
-# # summary_df_debug = pd.merge(
-# #     summary_df,
-# #     scoring_on_summary[
-# #         group_vars_clean_names + [" GN scoring ", "GN comments", "CW scoring"]
-# #     ],
-# #     on=group_vars_clean_names,
-# #     how="outer",
-# # )
-# summary_df_debug.to_csv(
-#     f"""{PATH}/summary_table_debug_{VERSION}.csv""", float_format="%.5g", index=False
-# )
-
-# summary_df.drop(columns=group_vars_clean_names).to_csv(
-#     f"""{PATH}/summary_table_{VERSION}.csv""", float_format="%.5g", index=False
-# )
-
-# Perform the left join using the cleaned columns, but keeping summary_df unchanged
-# summary_df = pd.merge(
-#     summary_df,
-#     scoring_on_summary[
-#         group_vars_clean_names + [" GN scoring ", "GN comments", "CW scoring"]
-#     ],
-#     on=group_vars_clean_names,
-#     how="left",
-# )
 
 
 # Count the different values
@@ -1157,13 +1105,13 @@ summary_df_split_of_results = (
 print(summary_df_split_of_results)
 
 summary_df_split_of_results.to_csv(
-    f"""{PATH}/summary_table_{VERSION}_counts.csv""", index=True
+    f"""{PATH}/summary_table_{VERSION_FOR_DATA}_counts.csv""", index=True
 )
 
 summary_df["Category_letters"] = summary_df["Category"].str.extract(r"^([A-Za-z]+)")
 
 # Create summary plot
-summary_plot_pdf_fn = f"{PATH}/plots/summary_plot_{VERSION}.pdf"
+summary_plot_pdf_fn = f"{PATH}/plots/summary_plot_{VERSION_FOR_DATA}.pdf"
 with PdfPages(summary_plot_pdf_fn) as pdf:
 
     # Group data by letters
@@ -1186,7 +1134,7 @@ with PdfPages(summary_plot_pdf_fn) as pdf:
 '''
 # Write the criteria to a text file
 source_file = __file__  # Replace with your .py file
-output_file = f"{PATH}/criteria_as_encoded_{VERSION}.txt"
+output_file = f"{PATH}/criteria_as_encoded_{VERSION_FOR_DATA}.txt"
 
 # Define the target function or code section to extract
 start_marker = "CRITERIA_START"  # Adjust to the code section you want to extract

@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import os
 import streamlit as st
 import plotly.graph_objects as go
 import plotly.express as px
@@ -13,21 +14,20 @@ st.title("Hubs and bridges")
 # load data
 # Get the path of the current script (inside streamlit/)
 ST_DIR = Path(__file__).parent.parent
-VERSION_FOR_SUMMARY_READING = "v28"
 VERSION_CLUSTER_DF = "innovation_list_HWLclusters_v3.0.xlsx"
 
-version = st.text_input("Enter summary data file version to be used (must be > v26)", value=VERSION_FOR_SUMMARY_READING)
-
 # Load logfit estimation summary
-@st.cache_data
-def load_data(version):
-    print(ST_DIR)
-    return pd.read_csv(ST_DIR / f"../data/summary_table_{version}.csv", converters={"Indicator Number": str})
+files = [entry for entry in os.listdir(ST_DIR / '../data/')
+         if entry.startswith('summary_table_v')
+         and entry.endswith('.csv')
+         and os.path.isfile(ST_DIR / '../data' / entry)]
+version = max([int(file[-6:-4]) for file in files if len(file.split('_')[-1])==7])
 try:
-    data_df = load_data(version)
+    print(ST_DIR)
+    data_df = pd.read_csv(ST_DIR / f"../data/summary_table_v{version}.csv", converters={"Indicator Number": str})
 except FileNotFoundError:
-    st.error(f"⚠️ Data version '{version}' not found. Please enter a valid version. Otherwise, the default {VERSION_FOR_SUMMARY_READING} is used.")
-    data_df = load_data(VERSION_FOR_SUMMARY_READING)
+    st.error(f"⚠️ Data version '{version}' not found. Please make sure the most recent logfit estimation file ends with a 'v' followed by a two-digit number.")
+    st.stop()
 # filter for chosen time series (and nan)
 data_df = data_df.loc[(data_df['select_1.1_allregions_FIN']!=0) | (data_df['select_1.1_allregions_FIN'].isna())]
 

@@ -2,15 +2,13 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import re
+import os
 import plotly.express as px
 import plotly.graph_objects as go
 from pathlib import Path
 
 # Get the path of the current script (inside streamlit/)
 CURRENT_DIR = Path(__file__).parent.parent
-
-VERSION_FOR_DATA = "v28"
-VERSION_FOR_FITPARAMETERS = "v28"
 YEAR_PADDING_FOR_PLOTTING = 5
 PATH = "../data"
 
@@ -38,28 +36,30 @@ if source == "Upload local file":
     if uploaded_file is not None:
         dosi_df = pd.read_csv(uploaded_file, converters={"Indicator Number": str})
 else:
-    version_data = st.text_input(
-        "Enter DoSI data file version to be used (must be > v26)",
-        value=VERSION_FOR_DATA
-    )
+    files = [entry for entry in os.listdir(CURRENT_DIR / PATH)
+             if entry.startswith('adjusted_datasets_v')
+             and entry.endswith('.csv')
+             and os.path.isfile(CURRENT_DIR / PATH / entry)]
+    version_data = max([int(file[-6:-4]) for file in files if len(file.split('_')[-1])==7])
     try:
-        dosi_df = load_data(version_data)
+        dosi_df = load_data('v'+str(version_data))
     except FileNotFoundError:
-        st.error(f"⚠️ Data version '{version_data}' not found. Please enter a valid version. Otherwise, the default {VERSION_FOR_DATA} is used.")
-        dosi_df = load_data(VERSION_FOR_DATA)
+        st.error(f"⚠️ Data version '{version_data}' not found. Please make sure the most recent data file ends with a 'v' followed by a two-digit number. Otherwise, the default 'v30' is used.")
+        dosi_df = load_data('v30')
 if dosi_df is None:
     st.stop()
 
 # Load logfit estimation summary
-version_summary = st.text_input("Enter summary data file version to be used (must be > v26)", value=VERSION_FOR_FITPARAMETERS)
-@st.cache_data
-def load_summary(version_summary):
-    return pd.read_csv(CURRENT_DIR / PATH / f"summary_table_{version_summary}.csv", converters={"Indicator Number": str})
+files = [entry for entry in os.listdir(CURRENT_DIR / PATH)
+         if entry.startswith('summary_table_v')
+         and entry.endswith('.csv')
+         and os.path.isfile(CURRENT_DIR / PATH / entry)]
+version_summary = max([int(file[-6:-4]) for file in files if len(file.split('_')[-1])==7])
 try:
-    summary_df = load_summary(version_summary)
+    summary_df = pd.read_csv(CURRENT_DIR / PATH / f"summary_table_v{version_summary}.csv", converters={"Indicator Number": str})
 except FileNotFoundError:
-    st.error(f"⚠️ Data version '{version_summary}' not found. Please enter a valid version. Otherwise, the default {VERSION_FOR_FITPARAMETERS} is used.")
-    summary_df = load_summary(VERSION_FOR_FITPARAMETERS)
+    st.error(f"⚠️ Summary version '{version_summary}' not found. Please make sure the most recent logfit estimation file ends with a 'v' followed by a two-digit number.")
+    st.stop()
 
 
 dosi_df["Value"] = pd.to_numeric(dosi_df["Value"], errors="coerce")
@@ -68,7 +68,8 @@ dosi_df = dosi_df.dropna(subset=["Value"])
 dosi_df["Spatial Scale"] = dosi_df["Spatial Scale"].str.rstrip()
 dosi_df["Innovation Name"] = dosi_df["Innovation Name"].str.rstrip()
 
-innovation_names = sorted(dosi_df["Innovation Name"].unique().tolist())
+sorted_inno_index = dosi_df.sort_values("Innovation Name", key=lambda col: col.str.lower()).index
+innovation_names = dosi_df.loc[sorted_inno_index, "Innovation Name"].drop_duplicates().tolist()
 indicator_codes = pd.concat([summary_df["Indicator Number"], dosi_df["Indicator Number"]]).unique().tolist()
 indicator_names = pd.concat([summary_df["Indicator Name"], dosi_df["Indicator Name"]]).unique().tolist()
 
@@ -97,10 +98,9 @@ with col1:
 with col2:
     selected_spatial_scale = st.selectbox(
         "Select spatial scale",
-        list(dosi_df.loc[dosi_df["Innovation Name"] == selected_innovation, "Spatial Scale"].unique()),
+        sorted(list(dosi_df.loc[dosi_df["Innovation Name"] == selected_innovation, "Spatial Scale"].unique())),
         index=0,
     )
-
 
 NUMBER_OF_COLUMNS = 8  # Number of columns in the grid
 st.subheader("Indicators included:")

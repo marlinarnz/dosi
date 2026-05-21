@@ -1,16 +1,13 @@
 import streamlit as st
-
 import pandas as pd
 import numpy as np
-
+import os
 import re
 from sklearn.linear_model import LinearRegression
 from scipy.stats import linregress
 import nbformat
-
 import plotly.express as px
 import plotly.graph_objects as go
-
 from pathlib import Path
 
 
@@ -22,20 +19,26 @@ st.title("Clusters")
 # Get the path of the current script (inside streamlit/)
 CURRENT_DIR = Path(__file__).parent.parent
 PATH = "../data"
-
-VERSION_FOR_DATA = "v28"
-VERSION_FOR_FITPARAMETERS = "v28"
 VERSION_FOR_METADATA = "v26"
 YEAR_PADDING_FOR_PLOTTING = 10
 
 
-version_data = st.text_input("Enter DoSI data file version to be used (must be > v26)", value=VERSION_FOR_DATA)
-version_summary = st.text_input("Enter summary data file version to be used (must be > v26)", value=VERSION_FOR_FITPARAMETERS)
+files = [entry for entry in os.listdir(CURRENT_DIR / PATH)
+         if entry.startswith('summary_table_v')
+         and entry.endswith('.csv')
+         and os.path.isfile(CURRENT_DIR / PATH / entry)]
+version_summary = max([int(file[-6:-4]) for file in files if len(file.split('_')[-1])==7])
 
-fn_data = CURRENT_DIR / PATH / f"adjusted_datasets_{version_data}.csv"
+files = [entry for entry in os.listdir(CURRENT_DIR / PATH)
+         if entry.startswith('adjusted_datasets_v')
+         and entry.endswith('.csv')
+         and os.path.isfile(CURRENT_DIR / PATH / entry)]
+version_data = max([int(file[-6:-4]) for file in files if len(file.split('_')[-1])==7])
+
+fn_data = CURRENT_DIR / PATH / f"adjusted_datasets_v{version_data}.csv"
 fn_data_hatch = CURRENT_DIR / PATH / f"hatch/hatch_data_dosi_format.csv"
-fn_summary = CURRENT_DIR / PATH / f"""summary_table_{version_summary}.csv"""
-fn_summary_hatch = CURRENT_DIR / PATH / f"""summary_table_HATCH_v27.csv"""
+fn_summary = CURRENT_DIR / PATH / f"summary_table_v{version_summary}.csv"
+fn_summary_hatch = CURRENT_DIR / PATH / f"summary_table_HATCH_v27.csv"
 fn_clusters = CURRENT_DIR / PATH / "innovation_list_HWLclusters_v3.0.xlsx"
 fn_early = CURRENT_DIR / PATH / "EarlyAdopterRegions_perInnovation_21March.csv"  # Early Adopting regions
 fn_early_hatch = CURRENT_DIR / PATH / "hatch/hatch_early_dict.csv"  # Early Adopting regions

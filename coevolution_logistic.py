@@ -11,9 +11,8 @@ from scipy.stats import linregress
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 
-VERSION_FOR_SUMMARY_READING = "v29"
-VERSION_FOR_METADATA = "v26"
 VERSION_FOR_DATA = "v30"
+VERSION_FOR_METADATA = "v26"
 VERSION_CLUSTER_DF = "innovation_list_HWLclusters_v3.0.xlsx"
 RENUMBER_METADATA_CODES = False
 PATH = "./data"
@@ -129,7 +128,7 @@ def get_dosi_data():
         assert len(innos) > 0, c+' cluster has no innovations assigned'
     
     # Summary of logfit estimation
-    summary = pd.read_csv(f"{PATH}/summary_table_{VERSION_FOR_SUMMARY_READING}.csv")
+    summary = pd.read_csv(f"{PATH}/summary_table_{VERSION_FOR_DATA}.csv")
     
     return adoptions_df, hatch, metadata, clusters_dict, categories, summary
 
@@ -494,7 +493,7 @@ def logistic_fitting(single_series=False):
     # Adjustments
     for adjustment in ['Original data']:# ['Original data', 't0 aligned']:
         # Look at certain innovation indicators
-        for indicator in indicators_in_data:
+        for indicator in indicators_in_data + ['All']:
             
             # For each cluster and once irrespective of the cluster
             for cluster in list(clusters.keys()) + ['All']:
