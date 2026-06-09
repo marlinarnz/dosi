@@ -140,93 +140,95 @@ def build_plot(inno, summary, inno_name, indicator_selection, spatial_selection)
         innovation_summary_df = innovation_summary_df.loc[
             (innovation_summary_df["select_1.1_allregions_FIN"]==1)
             | (innovation_summary_df["select_1.1_allregions_FIN"].isna())]
+    
+    if len(innovation_df) > 0:
 
-    year_min = innovation_df["Year"].min() - YEAR_PADDING_FOR_PLOTTING
-    year_max = innovation_df["Year"].max() + YEAR_PADDING_FOR_PLOTTING
-    #if not isinstance(year_min, int): year_min = 2000 - YEAR_PADDING_FOR_PLOTTING
-    #if not isinstance(year_max, int): year_max = 2000 + YEAR_PADDING_FOR_PLOTTING
+        year_min = innovation_df["Year"].min() - YEAR_PADDING_FOR_PLOTTING
+        year_max = innovation_df["Year"].max() + YEAR_PADDING_FOR_PLOTTING
+        #if not isinstance(year_min, int): year_min = 2000 - YEAR_PADDING_FOR_PLOTTING
+        #if not isinstance(year_max, int): year_max = 2000 + YEAR_PADDING_FOR_PLOTTING
 
-    years_for_plotting = np.linspace(
-        year_min, year_max, (year_max - year_min) + 1
-    )  # 10 + 1)
+        years_for_plotting = np.linspace(
+            year_min, year_max, (year_max - year_min) + 1
+        )  # 10 + 1)
 
-    # Generate a color palette using Plotly (or you can use matplotlib or another method)
-    colors = px.colors.qualitative.Set1  # Set1 is a predefined color palette
+        # Generate a color palette using Plotly (or you can use matplotlib or another method)
+        colors = px.colors.qualitative.Set1  # Set1 is a predefined color palette
 
-    fig = go.Figure()
+        fig = go.Figure()
 
-    for i, code in enumerate(innovation_df["Indicator Number"].unique()):
+        for i, code in enumerate(innovation_df["Indicator Number"].unique()):
 
-        # Assign color from the color cycle
-        color = colors[
-            i % len(colors)
-        ]  # Cycle through the colors if more codes than colors
-        
-        K_dict = {name: 1 for name in innovation_df["name"].unique()}
+            # Assign color from the color cycle
+            color = colors[
+                i % len(colors)
+            ]  # Cycle through the colors if more codes than colors
             
-        # Search for logfit parameters and add curve to plot, if available
-        if code in list(innovation_summary_df["Indicator Number"].unique()):
-            groups = innovation_summary_df[innovation_summary_df["Indicator Number"] == code].groupby(group_vars)
-            for j, (metric, timeseries) in enumerate(groups):
-                t0 = timeseries["log_t0"].iloc[0]
-                Dt = timeseries["log_Dt"].iloc[0]
-                K = timeseries["log_K"].iloc[0]
+            K_dict = {name: 1 for name in innovation_df["name"].unique()}
+                
+            # Search for logfit parameters and add curve to plot, if available
+            if code in list(innovation_summary_df["Indicator Number"].unique()):
+                groups = innovation_summary_df[innovation_summary_df["Indicator Number"] == code].groupby(group_vars)
+                for j, (metric, timeseries) in enumerate(groups):
+                    t0 = timeseries["log_t0"].iloc[0]
+                    Dt = timeseries["log_Dt"].iloc[0]
+                    K = timeseries["log_K"].iloc[0]
 
+                    fig.add_trace(
+                        go.Scatter(
+                            x=years_for_plotting,
+                            y=FPLogValue_with_scaling(years_for_plotting, t0, Dt, K),# / K,
+                            mode="lines",
+                            name=f"{code} - {metric}",  # Legend label
+                            showlegend=False,
+                            line=dict(color=color, width=2),
+                            opacity=1-j*0.8/len(groups),
+                            hovertemplate=f"""{code} <br>{code} ({metric[0]}: {metric[1]}) <br>Year=%{{x:.0f}}<br>Value=%{{y:.2f}}<br>Dt={Dt:.0f} t0={t0:.0f} K={K:.2f}<extra></extra>""",  # Custom tooltip
+                        )
+                    )
+                    
+                    #fig.update_layout(
+                    #    yaxis_title="K-normalised value",
+                    #    yaxis=dict(range=[0, 1.2])
+                    #)
+                    #K_dict[timeseries["name"].iloc[0]] = K
+            
+            groups = innovation_df[innovation_df["Indicator Number"] == code].groupby(group_vars)
+            for j, (metric, timeseries) in enumerate(groups):
+
+                # Add the points trace (same color as line)
                 fig.add_trace(
                     go.Scatter(
-                        x=years_for_plotting,
-                        y=FPLogValue_with_scaling(years_for_plotting, t0, Dt, K) / K,
-                        mode="lines",
-                        name=f"{code} - {metric}",  # Legend label
-                        showlegend=False,
-                        line=dict(color=color, width=2),
+                        x=timeseries["Year"],
+                        y=timeseries["Value"], # / K_dict[timeseries["name"].iloc[0]],
+                        mode="markers",
+                        name=f"{code} ({metric[0]}: {metric[1]})",  # This can be the same name to link with the line in the legend
+                        hovertemplate=f"""{code} ({metric[0]}: {metric[1]}) <br>{code} Point<br>Year=%{{x:.0f}}<br>value=%{{y:.2f}}<extra></extra>""",  # Custom tooltip
+                        marker=dict(size=8, color=color, line=dict(width=1, color="#777777")),
                         opacity=1-j*0.8/len(groups),
-                        hovertemplate=f"""{code} <br>{code} ({metric[0]}: {metric[1]}) <br>Year=%{{x:.0f}}<br>Value=%{{y:.2f}}<br>Dt={Dt:.0f} t0={t0:.0f} K={K:.2f}<extra></extra>""",  # Custom tooltip
                     )
                 )
-                
-                fig.update_layout(
-                    yaxis_title="K-normalized value",
-                    yaxis=dict(range=[0, 1.2])
+
+                # centroid of the scatter points
+                x_centroid = timeseries["Year"].mean()
+                y_centroid = (timeseries["Value"]).mean() # / K_dict[timeseries["name"].iloc[0]]).mean()
+                fig.add_annotation(
+                    x=x_centroid,
+                    y=y_centroid,
+                    text=str(code),
+                    showarrow=False,
+                    xanchor="center",
+                    yanchor="middle",
+                    font=dict(color=color),  # label colour = line colour
                 )
-                K_dict[timeseries["name"].iloc[0]] = K
-        
-        groups = innovation_df[innovation_df["Indicator Number"] == code].groupby(group_vars)
-        for j, (metric, timeseries) in enumerate(groups):
 
-            # Add the points trace (same color as line)
-            fig.add_trace(
-                go.Scatter(
-                    x=timeseries["Year"],
-                    y=timeseries["Value"] / K_dict[timeseries["name"].iloc[0]],
-                    mode="markers",
-                    name=f"{code} ({metric[0]}: {metric[1]})",  # This can be the same name to link with the line in the legend
-                    hovertemplate=f"""{code} ({metric[0]}: {metric[1]}) <br>{code} Point<br>Year=%{{x:.0f}}<br>value=%{{y:.2f}}<extra></extra>""",  # Custom tooltip
-                    marker=dict(size=8, color=color, line=dict(width=1, color="#777777")),
-                    opacity=1-j*0.8/len(groups),
-                )
-            )
-
-            # centroid of the scatter points
-            x_centroid = timeseries["Year"].mean()
-            y_centroid = (timeseries["Value"] / K_dict[timeseries["name"].iloc[0]]).mean()
-            fig.add_annotation(
-                x=x_centroid,
-                y=y_centroid,
-                text=str(code),
-                showarrow=False,
-                xanchor="center",
-                yanchor="middle",
-                font=dict(color=color),  # label colour = line colour
-            )
-
-    fig.update_layout(
-        title="Innovation " + inno_name + " in " + spatial_selection,
-        xaxis_title="Year"
-    )
-    fig.update_layout(showlegend=False)
-    fig.update_layout(height=900)  # make the plot taller
-    return fig
+        fig.update_layout(
+            title="Innovation " + inno_name + " in " + spatial_selection,
+            xaxis_title="Year"
+        )
+        fig.update_layout(showlegend=False)
+        fig.update_layout(height=900)  # make the plot taller
+        return fig
 
 
 fig = build_plot(dosi_df, summary_df, selected_innovation, feature_states, selected_spatial_scale)
