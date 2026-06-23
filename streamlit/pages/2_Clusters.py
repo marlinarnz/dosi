@@ -44,6 +44,8 @@ fn_early = CURRENT_DIR / PATH / "EarlyAdopterRegions_perInnovation_21March.csv" 
 fn_early_hatch = CURRENT_DIR / PATH / "hatch/hatch_early_dict.csv"  # Early Adopting regions
 fn_metadata = CURRENT_DIR / PATH / f"metadata_master_{VERSION_FOR_METADATA}.xlsx"
 
+
+# time series data
 dosi_df = pd.concat([
         pd.read_csv(fn_data, converters={"Indicator Number": str}),
         pd.read_csv(fn_data_hatch, converters={"Indicator Number": str}),
@@ -54,27 +56,29 @@ dosi_df = dosi_df.dropna(subset=["Value"])
 dosi_df["Spatial Scale"] = dosi_df["Spatial Scale"].str.rstrip()
 dosi_df["Innovation Name"] = dosi_df["Innovation Name"].str.rstrip()
 
+
+# Logfit estimates
 summary_df = pd.concat([
         pd.read_csv(fn_summary, converters={"Indicator Number": str}),
         pd.read_csv(fn_summary_hatch, converters={"Indicator Number": str}),
 ])
 
-early_df = pd.concat(
-    [pd.read_csv(fn_early, usecols=[0, 1]), pd.read_csv(fn_early_hatch, usecols=[0, 1])]
-)
+
+# early-adopting regions
+early_df = pd.concat([
+    pd.read_csv(fn_early, usecols=[0, 1]),
+    pd.read_csv(fn_early_hatch, usecols=[0, 1])
+])
 early_dict = dict(zip(early_df.iloc[:, 0], early_df.iloc[:, 1]))
 
-# Metadata / codes
 
+# Metadata / codes (OLD VERSION)
 def convert_to_three_digit_notation(s):
     return re.sub(r"([a-zA-Z])(\d+)", lambda m: f"{m.group(1)}{int(m.group(2)):03}", s)
-
-
 def read_metadata_table(fn, columns):
     df = pd.read_excel(fn, usecols=columns, dtype=str).dropna().reset_index(drop=True)
     df.iloc[:, 1] = df.iloc[:, 1].apply(convert_to_three_digit_notation)
     return df.set_index(df.columns[0])[df.columns[1]].to_dict()
-
 metadata = dict()
 metadata["Innovation Name"] = read_metadata_table(fn_metadata, "A,D")
 metadata["Spatial Scale"] = read_metadata_table(fn_metadata, "G,I")
@@ -87,21 +91,22 @@ for key, nested_dict in metadata.items():
             k.lower() if isinstance(k, str) else k: v for k, v in nested_dict.items()
         }
 
+
 # Clusters
 clusters = ['digital', 'prosumer', 'health', 'sufficiency']
 clusters_df = pd.read_excel(fn_clusters)
-
 # Update metadata innovation name label with cluster assignment file
 clusters_names = clusters_df.set_index("innovation_name")["innovation_label"].to_dict()
 metadata["Innovation Name"].update(clusters_names)
-
+# Generate cluster-innovation mapping
 clusters_dict = {}
 for c in clusters:
     clusters_dict[c] = list(clusters_df.loc[
         (clusters_df[c]==1) & (clusters_df['timeseries']==1), 'innovation_label'
     ])
 
-# Attach codes to data file
+
+# Attach codes to data file (OLD VERSION)
 dosi_df["Innovation Code"] = dosi_df["Innovation Name"].str.lower().map(metadata["Innovation Name"])
 dosi_df["Region Code"] = dosi_df["Spatial Scale"].str.lower().map(metadata["Spatial Scale"])
 dosi_df["Early Adopter Code"] = dosi_df["Innovation Code"].map(early_dict)
@@ -118,6 +123,15 @@ code_cols = [
 dosi_df[code_cols] = dosi_df[code_cols].astype(str)
 dosi_df["Code"] = dosi_df[code_cols].agg("_".join, axis=1)
 
+# create a unique identifyier per time series
+group_vars = ['Innovation Name', 'Spatial Scale', 'Description', 'Metric'] # defines one time series
+sep = ' - '
+dosi_df['name'] = dosi_df[group_vars[0]]
+summary_df['name'] = summary_df[group_vars[0]]
+for i in range(1, len(group_vars)):
+    dosi_df['name'] += sep + dosi_df[group_vars[i]]
+    summary_df['name'] += sep + summary_df[group_vars[i]]
+
 
 def FPLogValue_with_scaling(x, t0, Dt, s):
     """
@@ -127,38 +141,25 @@ def FPLogValue_with_scaling(x, t0, Dt, s):
 
 
 # ──────────────────────────────────────────────────────────────
-# 1.  RADIO-BUTTON ROW  ────────────────────────────────────────
+# 1. Clusters: RADIO-BUTTON ROW
 # ----------------------------------------------------------------
-PRESET_CHOICES = [key for key in clusters_dict.keys()]  # <-- your fixed options
-CUSTOM_TAG = "Custom"  # always the last radio entry
-radio_labels = PRESET_CHOICES + [CUSTOM_TAG]
 
-chosen_radio = st.radio(
-    "Choose a preset or create your own:",
-    radio_labels,
+active_choice = st.radio(
+    "Choose a cluster:",
+    clusters,
     horizontal=True,
 )
-
-if chosen_radio == CUSTOM_TAG:
-    custom_value = st.text_input("Enter a custom name:", placeholder="e.g. My Preset")
-    active_choice = custom_value.strip() or CUSTOM_TAG
-else:
-    active_choice = chosen_radio
-
 cluster = active_choice
 
-#st.markdown(f"**Cluster:** `{cluster}`")
-
 # ──────────────────────────────────────────────────────────────
-# 2.  CHECKBOX GRID  (responsive 5-column layout)  ─────────────
+# 2. Innovations: CHECKBOX GRID  (responsive column layout)
 # ----------------------------------------------------------------
 
-ALL_INNOVATION_CODES = dosi_df[
-    "Innovation Code"
-].unique()  # example feature list (replace!)
+#ALL_INNOVATION_CODES = dosi_df["Innovation Code"].unique()
+ALL_INNOVATION_CODES = set(clusters_dict.get(active_choice, []))
 prechecked = set(clusters_dict.get(active_choice, []))
 
-NUMBER_OF_COLUMNS = 10  # Number of columns in the grid
+NUMBER_OF_COLUMNS = 5  # Number of columns in the grid
 
 st.subheader("Innovations included:")
 cols = st.columns(NUMBER_OF_COLUMNS)
@@ -166,233 +167,175 @@ feature_states = {}
 
 for idx, label in enumerate(ALL_INNOVATION_CODES):
     display_name = next(
-        (key for key, value in metadata["Innovation Name"].items() if value == label),
+        (key for key, value in clusters_names.items() if value == label),
         None,  # default if not found
     )
-
     if display_name is None:
         # Skip labels that don't exist in metadata
         continue
-
     with cols[idx % NUMBER_OF_COLUMNS]:
         feature_states[label] = st.checkbox(
             display_name,
             value=label in prechecked,
         )
 
-# ──────────────────────────────────────────────────────────────
-# 3.  TOGGLE  ──────────────────────────────────────────────────
-# ----------------------------------------------------------------
-early_adopting_regions_only = st.toggle("Show only early-adopting regions", value=False)
-
-country_selection = st.multiselect(
-    "OR Select regions to include [toggle above to the left]",
-    options=dosi_df[
-        dosi_df["Innovation Code"].isin(
-            [label for label, checked in feature_states.items() if checked]
-        )
-    ]["Region Code"].unique(),
-    default=dosi_df[
-        dosi_df["Innovation Code"].isin(
-            [label for label, checked in feature_states.items() if checked]
-        )
-    ]["Region Code"].unique(),
+indicator_radio = st.radio(
+    "Choose an innovation indicator number:",
+    list(dosi_df['Indicator Number'].unique()),
+    horizontal=True,
 )
 
-align_t0 = st.toggle("Align t0?", value=False)
+# ──────────────────────────────────────────────────────────────
+# 3. Countries: CHECKBOX GRID  (responsive column layout)
+# ----------------------------------------------------------------
 
-# Now within clusters, only adoption
+spatials = sorted(list(dosi_df.loc[
+    (dosi_df['Innovation Code'].isin(prechecked)) & (dosi_df['Indicator Number']==indicator_radio),
+    'Spatial Scale'].unique()))
+
+N_COLS_SPATIAL = 8
+st.subheader("Spatial scales to display:")
+cols = st.columns(N_COLS_SPATIAL)
+
+spatial_states = {}
+for idx, label in enumerate(spatials):
+    with cols[idx % N_COLS_SPATIAL]:
+        spatial_states[label] = st.checkbox(label, value=False if idx>1 else True)
+
+align_t0 = st.toggle("Align t0?", value=False)
 
 
 # ──────────────────────────────────────────────────────────────
 # 4.  PLOTLY FIGURE  ───────────────────────────────────────────
 # ----------------------------------------------------------------
+
 def build_plot(
-    selected_innovations, early_only: bool, countries_selected: list
-) -> go.Figure:
-    """Dummy plot builder – drop in your real logic here."""
+    selected_innovations, countries_selected: list, indicator: str
+):
 
     cluster_innovations_df = dosi_df[
         (dosi_df["Innovation Code"].isin(selected_innovations))
-        & (dosi_df["Indicator Number"] == "1.1")
+        & (dosi_df["Indicator Number"] == indicator)
+        & (dosi_df["Spatial Scale"].isin(countries_selected))
     ].copy()
     cluster_innovations_summary_df = summary_df[
         (summary_df["Code"].str.split("_").str[0].isin(selected_innovations))
-        & (summary_df["Indicator Number"] == "1.1")
-    ]
+        & (summary_df["Indicator Number"] == indicator)
+        & (summary_df["Spatial Scale"].isin(countries_selected))
+    ].copy()
+    
+    if len(cluster_innovations_df) > 0:
 
-    if early_only:
-        # Only the early adopting regions?
-        cluster_innovations_df = dosi_df[
-            (dosi_df["Innovation Code"].isin(selected_innovations))
-            & (dosi_df["Indicator Number"] == "1.1")
-            & (dosi_df["Region Code"] == dosi_df["Early Adopter Code"])
-        ].copy()
-        cluster_innovations_summary_df = summary_df[
-            (summary_df["Code"].str.split("_").str[0].isin(selected_innovations))
-            & (
-                summary_df["Code"].str.split("_").str[1]
-                == summary_df["Code"].str.split("_").str[0].map(early_dict)
+        year_min = cluster_innovations_df["Year"].min() - YEAR_PADDING_FOR_PLOTTING
+        year_max = cluster_innovations_df["Year"].max() + YEAR_PADDING_FOR_PLOTTING
+
+        years_for_plotting = np.linspace(
+            year_min, year_max, (year_max - year_min) + 1
+        )  # 10 + 1)
+
+        # Generate a color palette using Plotly (or you can use matplotlib or another method)
+        colors = px.colors.qualitative.Set1  # Set1 is a predefined color palette
+
+        fig = go.Figure()
+
+        for i, code in enumerate(cluster_innovations_summary_df["name"]):
+            t0 = cluster_innovations_summary_df[
+                cluster_innovations_summary_df["name"] == code
+            ]["log_t0"].iloc[0]
+            Dt = cluster_innovations_summary_df[
+                cluster_innovations_summary_df["name"] == code
+            ]["log_Dt"].iloc[0]
+            K = cluster_innovations_summary_df[
+                cluster_innovations_summary_df["name"] == code
+            ]["log_K"].iloc[0]
+
+            innovation_name = cluster_innovations_summary_df[
+                cluster_innovations_summary_df["name"] == code
+            ]["Innovation Name"].iloc[0]
+            region_name = cluster_innovations_summary_df[
+                cluster_innovations_summary_df["name"] == code
+            ]["Spatial Scale"].iloc[0]
+            metric_name = cluster_innovations_summary_df[
+                cluster_innovations_summary_df["name"] == code
+            ]["Metric"].iloc[0]
+            description_name = cluster_innovations_summary_df[
+                cluster_innovations_summary_df["name"] == code
+            ]["Description"].iloc[0]
+
+            if Dt < 0:
+                print(f"Dt < 0 for {code}. Plotting mirrored curve.")
+
+            # Assign color from the color cycle
+            color = colors[
+                i % len(colors)
+            ]  # Cycle through the colors if more codes than colors
+
+            # Add the points trace (same color as line)
+            fig.add_trace(
+                go.Scatter(
+                    x=dosi_df[dosi_df["name"] == code]["Year"] - (t0 if align_t0 else 0),
+                    y=(1 / K if Dt < 0 else 0)
+                    + (-1 if Dt < 0 else 1) * dosi_df[dosi_df["name"] == code]["Value"] / K,
+                    mode="markers",
+                    name=f"{innovation_name} K-normalized data ({region_name})",  # This can be the same name to link with the line in the legend
+                    hovertemplate=f"{innovation_name} ({region_name})<br>Description: {description_name}<br>Metric: {metric_name}<br>{code} Point<br>Year=%{{x:.0f}}<br>value=%{{y:.2f}}<extra></extra>",  # Custom tooltip
+                    marker=dict(size=8, color=color),  # Same color for points as the line
+                )
             )
-            & (summary_df["Indicator Number"] == "1.1")
-        ]
 
-        # Only the early adopting regions and market shares?
-        cluster_innovations_df = dosi_df[
-            (dosi_df["Innovation Code"].isin(selected_innovations))
-            & (dosi_df["Indicator Number"] == "1.1")
-            & (dosi_df["Region Code"] == dosi_df["Early Adopter Code"])
-            & (
-                (dosi_df["Metric"] == "market share")
-                | (dosi_df["File"] == "HATCH files")
+            fig.add_trace(
+                go.Scatter(
+                    x=years_for_plotting - (t0 if align_t0 else 0),
+                    y=(1 / K if Dt < 0 else 0)
+                    + (-1 if Dt < 0 else 1)
+                    * FPLogValue_with_scaling(years_for_plotting, t0, Dt, K)
+                    / K,
+                    mode="lines",
+                    name=code,  # Legend label
+                    showlegend=False,
+                    line=dict(color=color, width=2),
+                    hovertemplate=f"{innovation_name} ({region_name})<br>{code}<br>Year=%{{x:.0f}}<br>Value=%{{y:.2f}}<br>Dt={Dt:.0f} t0={t0:.0f} K={K:.2f}<extra></extra>",  # Custom tooltip
+                )
             )
-        ].copy()
-        cluster_innovations_summary_df = summary_df[
-            (summary_df["Code"].str.split("_").str[0].isin(selected_innovations))
-            & (
-                summary_df["Code"].str.split("_").str[1]
-                == summary_df["Code"].str.split("_").str[0].map(early_dict)
+
+            fig.update_layout(
+                title="Cluster " + cluster,
+                xaxis_title="X Axis",
+                yaxis_title="Y Axis",
+                # hovermode='x unified'
+                yaxis=dict(range=[0, 1.2]),  # Set the y-axis limits to [0, 5]
             )
-            & (summary_df["Indicator Number"] == "1.1")
-            & (
-                (summary_df["Metric"] == "market share")
-                | (summary_df["Category"].str.contains("h"))
+
+            # centroid of the scatter points
+            x_centroid = dosi_df.loc[dosi_df["name"] == code, "Year"].mean()
+            y_centroid = (1 / K if Dt < 0 else 0) + (-1 if Dt < 0 else 1) * (
+                dosi_df.loc[dosi_df["name"] == code, "Value"] / K
+            ).mean()
+
+            fig.add_annotation(
+                x=x_centroid - (t0 if align_t0 else 0),
+                y=y_centroid,
+                text=f"{innovation_name} ({region_name})",
+                showarrow=False,
+                xanchor="center",
+                yanchor="middle",
+                font=dict(color=color),  # label colour = line colour
             )
-        ]
 
-    else:
+            fig.update_layout(showlegend=False)  # put this once, just before `return fig`
 
-        # Only the early adopting regions and market shares?
-        cluster_innovations_df = dosi_df[
-            (dosi_df["Innovation Code"].isin(selected_innovations))
-            & (dosi_df["Indicator Number"] == "1.1")
-            & (dosi_df["Region Code"].isin(countries_selected))
-            & (
-                (dosi_df["Metric"] == "market share")
-                | (dosi_df["File"] == "HATCH files")
-            )
-        ].copy()
-        cluster_innovations_summary_df = summary_df[
-            (summary_df["Code"].str.split("_").str[0].isin(selected_innovations))
-            & (summary_df["Code"].str.split("_").str[1].isin(countries_selected))
-            & (summary_df["Indicator Number"] == "1.1")
-            & (
-                (summary_df["Metric"] == "market share")
-                | (summary_df["Category"].str.contains("h"))
-            )
-        ]
+            # ⬆️ add this *once* after all traces and just before returning the figure
+            fig.update_layout(height=900)  # make the plot taller
 
-    year_min = cluster_innovations_df["Year"].min() - YEAR_PADDING_FOR_PLOTTING
-    year_max = cluster_innovations_df["Year"].max() + YEAR_PADDING_FOR_PLOTTING
-
-    years_for_plotting = np.linspace(
-        year_min, year_max, (year_max - year_min) + 1
-    )  # 10 + 1)
-
-    # Generate a color palette using Plotly (or you can use matplotlib or another method)
-    colors = px.colors.qualitative.Set1  # Set1 is a predefined color palette
-
-    fig = go.Figure()
-
-    for i, code in enumerate(cluster_innovations_summary_df["Code"]):
-        t0 = cluster_innovations_summary_df[
-            cluster_innovations_summary_df["Code"] == code
-        ]["log_t0"].iloc[0]
-        Dt = cluster_innovations_summary_df[
-            cluster_innovations_summary_df["Code"] == code
-        ]["log_Dt"].iloc[0]
-        K = cluster_innovations_summary_df[
-            cluster_innovations_summary_df["Code"] == code
-        ]["log_K"].iloc[0]
-
-        innovation_name = cluster_innovations_summary_df[
-            cluster_innovations_summary_df["Code"] == code
-        ]["Innovation Name"].iloc[0]
-        region_name = cluster_innovations_summary_df[
-            cluster_innovations_summary_df["Code"] == code
-        ]["Spatial Scale"].iloc[0]
-        metric_name = cluster_innovations_summary_df[
-            cluster_innovations_summary_df["Code"] == code
-        ]["Metric"].iloc[0]
-        description_name = cluster_innovations_summary_df[
-            cluster_innovations_summary_df["Code"] == code
-        ]["Description"].iloc[0]
-
-        if Dt < 0:
-            print(f"Dt < 0 for {code}. Plotting mirrored curve.")
-
-        # Assign color from the color cycle
-        color = colors[
-            i % len(colors)
-        ]  # Cycle through the colors if more codes than colors
-
-        # Add the points trace (same color as line)
-        fig.add_trace(
-            go.Scatter(
-                x=dosi_df[dosi_df["Code"] == code]["Year"] - (t0 if align_t0 else 0),
-                y=(1 / K if Dt < 0 else 0)
-                + (-1 if Dt < 0 else 1) * dosi_df[dosi_df["Code"] == code]["Value"] / K,
-                mode="markers",
-                name=f"{innovation_name} K-normalized data ({region_name})",  # This can be the same name to link with the line in the legend
-                hovertemplate=f"{innovation_name} ({region_name})<br>Description: {description_name}<br>Metric: {metric_name}<br>{code} Point<br>Year=%{{x:.0f}}<br>value=%{{y:.2f}}<extra></extra>",  # Custom tooltip
-                marker=dict(size=8, color=color),  # Same color for points as the line
-            )
-        )
-
-        fig.add_trace(
-            go.Scatter(
-                x=years_for_plotting - (t0 if align_t0 else 0),
-                y=(1 / K if Dt < 0 else 0)
-                + (-1 if Dt < 0 else 1)
-                * FPLogValue_with_scaling(years_for_plotting, t0, Dt, K)
-                / K,
-                mode="lines",
-                name=code,  # Legend label
-                showlegend=False,
-                line=dict(color=color, width=2),
-                hovertemplate=f"{innovation_name} ({region_name})<br>{code}<br>Year=%{{x:.0f}}<br>Value=%{{y:.2f}}<br>Dt={Dt:.0f} t0={t0:.0f} K={K:.2f}<extra></extra>",  # Custom tooltip
-            )
-        )
-
-        fig.update_layout(
-            title="Cluster "
-            + cluster
-            + (" (Early Adopting Regions Only)" if early_adopting_regions_only else ""),
-            xaxis_title="X Axis",
-            yaxis_title="Y Axis",
-            # hovermode='x unified'
-            yaxis=dict(range=[0, 1.2]),  # Set the y-axis limits to [0, 5]
-        )
-
-        # centroid of the scatter points
-        x_centroid = dosi_df.loc[dosi_df["Code"] == code, "Year"].mean()
-        y_centroid = (1 / K if Dt < 0 else 0) + (-1 if Dt < 0 else 1) * (
-            dosi_df.loc[dosi_df["Code"] == code, "Value"] / K
-        ).mean()
-
-        fig.add_annotation(
-            x=x_centroid - (t0 if align_t0 else 0),
-            y=y_centroid,
-            text=f"{innovation_name} ({region_name})",
-            showarrow=False,
-            xanchor="center",
-            yanchor="middle",
-            font=dict(color=color),  # label colour = line colour
-        )
-
-        fig.update_layout(showlegend=False)  # put this once, just before `return fig`
-
-        # ⬆️ add this *once* after all traces and just before returning the figure
-        fig.update_layout(height=900)  # make the plot taller
-
-    return fig
+        return fig
 
 
 fig = build_plot(
-    selected_innovations=[
-        label for label, checked in feature_states.items() if checked
-    ],
-    early_only=early_adopting_regions_only,
-    countries_selected=country_selection,
+    selected_innovations=[label for label, checked in feature_states.items() if checked],
+    countries_selected=[label for label, checked in spatial_states.items() if checked],
+    indicator=indicator_radio
 )
-st.plotly_chart(fig, use_container_width=True)
+try:
+    st.plotly_chart(fig, width='stretch')
+except:
+    st.error('Choose a country')
