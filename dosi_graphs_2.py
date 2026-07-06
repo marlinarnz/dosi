@@ -17,19 +17,23 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 
 PATH = "data"
-VERSION_FOR_DATA = "v30"
+VERSION_FOR_DATA = "v31"
 VERSION_FOR_SUMMARY_READING = "v30"
 VERSION_FOR_METADATA = "v26"
+VERSION = VERSION_FOR_DATA
 
 SMALL_SUBSET = False  # Do you only want a small subset for testing?
 REDO_FITS = True # Generate new pickle files with logistic fits
 RENUMBER_METADATA_CODES = False
-CREATE_PDFS = True
+CREATE_PDFS = False
 
 LINE_COLOR_LOG = "blue"
 
 
 clusters = pd.read_excel(f"{PATH}/innovation_list_HWLclusters_v3.0.xlsx")
+clusters['innovation_name'] = clusters['innovation_name'].str.lower()
+clusters = clusters.dropna(subset='innovation_name')
+assert len(clusters) > 0
 
 #######################################
 ### DoSI data
@@ -53,7 +57,7 @@ hatch["Spatial Scale"] = hatch["Spatial Scale"].str.rstrip()
 hatch["Innovation Name"] = hatch["Innovation Name"].str.rstrip()
 # Filter HATCH for innovations used in clusters
 hatch = hatch.loc[(hatch['Innovation Name'].str.lower()
-                   ).isin(clusters['innovation_name'].str.lower())]
+                   ).isin(clusters['innovation_name'])]
 
 adoptions_df = pd.concat([dosi, hatch]).reset_index(drop=True)
 
@@ -132,8 +136,6 @@ for inno, short in clusters_names.items():
 
 group_vars = list(metadata.keys())
 print("data grouping performed on keys " + str(group_vars))
-
-# Failed attempt below to go for alphabetic ordering of codes
 grouped = adoptions_df.groupby(group_vars)
 codes = []
 groups = []

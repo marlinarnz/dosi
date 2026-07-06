@@ -338,4 +338,4 @@ fig = build_plot(
 try:
     st.plotly_chart(fig, width='stretch')
 except:
-    st.error('Choose a country')
+    st.error('Choose a country with data available')
