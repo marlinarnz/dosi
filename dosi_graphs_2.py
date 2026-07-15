@@ -17,8 +17,8 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 
 PATH = "data"
-VERSION_FOR_DATA = "v31"
-VERSION_FOR_SUMMARY_READING = "v30"
+VERSION_FOR_DATA = "v32"
+VERSION_FOR_SUMMARY_READING = "v31"
 VERSION_FOR_METADATA = "v26"
 VERSION = VERSION_FOR_DATA
 
