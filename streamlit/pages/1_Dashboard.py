@@ -130,6 +130,13 @@ OVERLAP_LOOSE_Y_TOL_FRAC = 0.02
 # chart" - show that point in full instead of condensing it to one line.
 OVERLAP_TIGHT_Y_TOL_FRAC = 0.005
 
+# Cap on how many points get shown in full in one tooltip. Confirmed via browser testing:
+# a cluster of ~13 exact-duplicate points (common in early years where many metrics are
+# simultaneously 0) produced a single tooltip box over 1500px tall, which renders far away
+# from the actual hovered point and looks exactly like no tooltip appeared at all. Anything
+# beyond this cap is condensed into the "+N more" summary instead.
+MAX_TIGHT_DETAIL = 4
+
 # Marker fill alpha for scatter points, capped here (and used as the flat value in
 # 2_Clusters.py, which has no per-group opacity tiers) so overlapping points blend
 # into a visibly different color rather than one fully occluding another.
@@ -150,13 +157,14 @@ def _build_overlap_aware_hovertext(x, y, own_html, other_html, eps_y):
     changes what the tooltip shows. The hovered point's own detail is always listed first
     and bolded. Among the rest, pairs that are within OVERLAP_TIGHT_Y_TOL_FRAC of each
     other (true near-duplicates, not just "close on this chart's scale") are shown in
-    full; anything looser is condensed into a one-line summary."""
+    full, up to MAX_TIGHT_DETAIL of them; anything looser, or beyond that cap, is
+    condensed into a one-line summary instead."""
     x = np.asarray(x, dtype=float)
     y = np.asarray(y, dtype=float)
     n = len(x)
     hovertext = []
     for i in range(n):
-        tight, loose = [], []
+        tight_idx, loose_idx = [], []
         for j in range(n):
             if j == i or x[j] != x[i]:
                 continue
@@ -164,16 +172,23 @@ def _build_overlap_aware_hovertext(x, y, own_html, other_html, eps_y):
                 continue  # not overlapping at all
             tight_tol = OVERLAP_TIGHT_Y_TOL_FRAC * min(abs(y[i]), abs(y[j]))
             if abs(y[j] - y[i]) <= tight_tol:
-                tight.append(own_html[j])
+                tight_idx.append(j)
             else:
-                loose.append(other_html[j])
+                loose_idx.append(j)
 
-        if not tight and not loose:
+        if not tight_idx and not loose_idx:
             hovertext.append(own_html[i])
             continue
-        blocks = [f"<b>{own_html[i]}</b>"] + tight
-        if loose:
-            blocks.append(f"+{len(loose)} overlapping point(s):<br>" + "<br>".join(loose))
+
+        # Cap full-detail blocks so a large cluster of exact duplicates can't blow up
+        # the tooltip into an unusably tall box; overflow gets condensed like loose ones.
+        condensed_idx = tight_idx[MAX_TIGHT_DETAIL:] + loose_idx
+        blocks = [f"<b>{own_html[i]}</b>"] + [own_html[j] for j in tight_idx[:MAX_TIGHT_DETAIL]]
+        if condensed_idx:
+            blocks.append(
+                f"+{len(condensed_idx)} overlapping point(s):<br>"
+                + "<br>".join(other_html[j] for j in condensed_idx)
+            )
         hovertext.append("<br><br>".join(blocks))
     return hovertext
 
