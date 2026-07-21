@@ -16,6 +16,23 @@ st.set_page_config(layout="wide")  # add at the very top, before st.title
 st.title("Clusters")
 
 
+def _persist(widget_fn, *args, key, **kwargs):
+    """Makes a keyed widget's value survive navigating to another page and back.
+
+    Streamlit deletes a widget's own session_state[key] entry whenever that widget isn't
+    rendered during a run (e.g. while a different page is showing) -
+    https://docs.streamlit.io/develop/concepts/multipage-apps/widgets. We mirror the value
+    into a second, plain (non-widget) session_state entry that this cleanup never touches,
+    and re-seed the widget's key from that mirror whenever it comes back.
+    """
+    shadow_key = f"_persist_{key}"
+    if shadow_key in st.session_state and key not in st.session_state:
+        st.session_state[key] = st.session_state[shadow_key]
+    value = widget_fn(*args, key=key, **kwargs)
+    st.session_state[shadow_key] = value
+    return value
+
+
 # Get the path of the current script (inside streamlit/)
 CURRENT_DIR = Path(__file__).parent.parent
 PATH = "../data"
@@ -210,10 +227,12 @@ def _build_overlap_aware_hovertext(x, y, own_html, other_html, eps_y):
 # 1. Clusters: RADIO-BUTTON ROW
 # ----------------------------------------------------------------
 
-active_choice = st.radio(
+active_choice = _persist(
+    st.radio,
     "Choose a cluster:",
     clusters,
     horizontal=True,
+    key="clusters_active_choice",
 )
 cluster = active_choice
 
@@ -256,16 +275,19 @@ for idx, label in enumerate(ALL_INNOVATION_CODES):
         # Skip labels that don't exist in metadata
         continue
     with cols[idx % NUMBER_OF_COLUMNS]:
-        feature_states[label] = st.checkbox(
+        feature_states[label] = _persist(
+            st.checkbox,
             display_name,
             value=label in prechecked,
             key=_innovation_key(label),
         )
 
-indicator_radio = st.radio(
+indicator_radio = _persist(
+    st.radio,
     "Choose an innovation indicator number:",
     list(dosi_df['Indicator Number'].unique()),
     horizontal=True,
+    key="clusters_indicator_radio",
 )
 
 # ──────────────────────────────────────────────────────────────
@@ -299,9 +321,11 @@ cols = st.columns(N_COLS_SPATIAL)
 spatial_states = {}
 for idx, label in enumerate(spatials):
     with cols[idx % N_COLS_SPATIAL]:
-        spatial_states[label] = st.checkbox(label, value=False if idx>1 else True, key=_spatial_key(label))
+        spatial_states[label] = _persist(
+            st.checkbox, label, value=False if idx>1 else True, key=_spatial_key(label),
+        )
 
-align_t0 = st.toggle("Align t0?", value=False)
+align_t0 = _persist(st.toggle, "Align t0?", value=False, key="clusters_align_t0")
 
 
 # ──────────────────────────────────────────────────────────────

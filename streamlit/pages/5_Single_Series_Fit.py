@@ -22,11 +22,32 @@ st.markdown(
     """
 )
 
+
+def _persist(widget_fn, *args, key, **kwargs):
+    """Makes a keyed widget's value survive navigating to another page and back.
+
+    Streamlit deletes a widget's own session_state[key] entry whenever that widget isn't
+    rendered during a run (e.g. while a different page is showing) -
+    https://docs.streamlit.io/develop/concepts/multipage-apps/widgets. We mirror the value
+    into a second, plain (non-widget) session_state entry that this cleanup never touches,
+    and re-seed the widget's key from that mirror whenever it comes back.
+    """
+    shadow_key = f"_persist_{key}"
+    if shadow_key in st.session_state and key not in st.session_state:
+        st.session_state[key] = st.session_state[shadow_key]
+    value = widget_fn(*args, key=key, **kwargs)
+    st.session_state[shadow_key] = value
+    return value
+
+
 # ──────────────────────────────────────────────────────────────
 # 1. Data loading (mirrors the Dashboard page)
 # ──────────────────────────────────────────────────────────────
 
-source = st.radio("Choose data source", ["Repo file", "Upload local file"], horizontal=True)
+source = _persist(
+    st.radio,
+    "Choose data source", ["Repo file", "Upload local file"], horizontal=True, key="single_source",
+)
 
 dosi_df = None
 
@@ -220,12 +241,21 @@ innovation_names = dosi_df.loc[sorted_inno_index, "Innovation Name"].drop_duplic
 
 col1, col2 = st.columns(2)
 with col1:
-    sel_innovation = st.selectbox("Innovation", innovation_names, index=0)
+    sel_innovation = _persist(
+        st.selectbox,
+        "Innovation", innovation_names, index=0, key="single_sel_innovation",
+    )
 df1 = dosi_df[dosi_df["Innovation Name"] == sel_innovation]
 
+# The selectboxes below are each keyed on every selection they cascade from, so switching
+# an earlier one still resets the later ones to their first option instead of erroring/
+# sticking on a value that doesn't exist for the new combination.
 with col2:
     spatial_options = sorted(df1["Spatial Scale"].unique())
-    sel_spatial = st.selectbox("Spatial scale", spatial_options, index=0)
+    sel_spatial = _persist(
+        st.selectbox,
+        "Spatial scale", spatial_options, index=0, key=f"single_sel_spatial_{sel_innovation}",
+    )
 df2 = df1[df1["Spatial Scale"] == sel_spatial]
 
 col3, col4, col5 = st.columns(3)
@@ -235,18 +265,30 @@ with col3:
         f"{code} - {df2.loc[df2['Indicator Number'] == code, 'Indicator Name'].iloc[0]}": code
         for code in indicator_codes
     }
-    sel_indicator_label = st.selectbox("Indicator", list(label_to_code.keys()), index=0)
+    sel_indicator_label = _persist(
+        st.selectbox,
+        "Indicator", list(label_to_code.keys()), index=0,
+        key=f"single_sel_indicator_{sel_innovation}_{sel_spatial}",
+    )
     sel_indicator = label_to_code[sel_indicator_label]
 df3 = df2[df2["Indicator Number"] == sel_indicator]
 
 with col4:
     description_options = sorted(df3["Description"].unique())
-    sel_description = st.selectbox("Description", description_options, index=0)
+    sel_description = _persist(
+        st.selectbox,
+        "Description", description_options, index=0,
+        key=f"single_sel_description_{sel_innovation}_{sel_spatial}_{sel_indicator}",
+    )
 df4 = df3[df3["Description"] == sel_description]
 
 with col5:
     metric_options = sorted(df4["Metric"].unique())
-    sel_metric = st.selectbox("Metric", metric_options, index=0)
+    sel_metric = _persist(
+        st.selectbox,
+        "Metric", metric_options, index=0,
+        key=f"single_sel_metric_{sel_innovation}_{sel_spatial}_{sel_indicator}_{sel_description}",
+    )
 
 series_df = (
     df4[df4["Metric"] == sel_metric]
@@ -352,7 +394,8 @@ FIT_METHODS = [
     "Linear",
 ]
 
-method = st.selectbox(
+method = _persist(
+    st.selectbox,
     "Fitting method",
     FIT_METHODS,
     index=0,
@@ -362,6 +405,7 @@ method = st.selectbox(
         "it is the default here too. The other logistic variants were used in this repo for "
         "hard-to-fit / bounded cases (e.g. market shares)."
     ),
+    key="single_method",
 )
 
 fit_kwargs = {}
@@ -547,11 +591,13 @@ else:
     )
 
 st.markdown("**Compare against fits already stored in the summary table**")
-reference_choices = st.multiselect(
+reference_choices = _persist(
+    st.multiselect,
     "Overlay stored pipeline fit(s)",
     ["Logistic", "Exponential", "Linear"],
     default=["Logistic"] if summary_df is not None else [],
     disabled=summary_df is None,
+    key="single_reference_choices",
 )
 
 ref_row = None
@@ -568,7 +614,7 @@ if summary_df is not None:
     elif reference_choices:
         st.info("No matching entry found in the summary table for this exact series.")
 
-log_y_axis = st.checkbox("Log-scale y-axis", value=False)
+log_y_axis = _persist(st.checkbox, "Log-scale y-axis", value=False, key="single_log_y_axis")
 
 year_min_plot = years_all.min() - YEAR_PADDING_FOR_PLOTTING
 year_max_plot = years_all.max() + YEAR_PADDING_FOR_PLOTTING

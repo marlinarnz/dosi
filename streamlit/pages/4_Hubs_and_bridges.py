@@ -11,6 +11,23 @@ st.set_page_config(layout="wide")  # add at the very top, before st.title
 
 st.title("Hubs and bridges")
 
+
+def _persist(widget_fn, *args, key, **kwargs):
+    """Makes a keyed widget's value survive navigating to another page and back.
+
+    Streamlit deletes a widget's own session_state[key] entry whenever that widget isn't
+    rendered during a run (e.g. while a different page is showing) -
+    https://docs.streamlit.io/develop/concepts/multipage-apps/widgets. We mirror the value
+    into a second, plain (non-widget) session_state entry that this cleanup never touches,
+    and re-seed the widget's key from that mirror whenever it comes back.
+    """
+    shadow_key = f"_persist_{key}"
+    if shadow_key in st.session_state and key not in st.session_state:
+        st.session_state[key] = st.session_state[shadow_key]
+    value = widget_fn(*args, key=key, **kwargs)
+    st.session_state[shadow_key] = value
+    return value
+
 # load data
 # Get the path of the current script (inside streamlit/)
 ST_DIR = Path(__file__).parent.parent
@@ -60,28 +77,36 @@ for c, innos in clusters_dict.items():
 # 1.  RADIO-BUTTON ROW  ────────────────────────────────────────
 # --------------------------------------------------------------
 
-analysis_radio = st.radio(
+analysis_radio = _persist(
+    st.radio,
     "Choose hubs or bridges analysis:",
     analysis,
     horizontal=True,
+    key="hubs_analysis_radio",
 )
 
-cluster_radio = st.radio(
+cluster_radio = _persist(
+    st.radio,
     "Choose a cluster:",
     ['All'] + clusters,
     horizontal=True,
+    key="hubs_cluster_radio",
 )
 
-indicator_radio = st.radio(
+indicator_radio = _persist(
+    st.radio,
     "Choose an innovation indicator number:",
     indicators,
     horizontal=True,
+    key="hubs_indicator_radio",
 )
 
-metric_radio = st.radio(
+metric_radio = _persist(
+    st.radio,
     "Choose a metric to display in the plots:",
     metrics,
     horizontal=True,
+    key="hubs_metric_radio",
 )
 
 # ──────────────────────────────────────────────────────────────
@@ -108,7 +133,7 @@ cols_spatial = st.columns(N_COLS_SPATIAL)
 spatial_states = {}
 for idx, label in enumerate(available_spatial):
     with cols_spatial[idx % N_COLS_SPATIAL]:
-        spatial_states[label] = st.checkbox(label, value=True, key='s_'+label)
+        spatial_states[label] = _persist(st.checkbox, label, value=True, key='s_'+label)
 
 #N_COLS_INNOS = 6
 #st.subheader(analysis_radio+" innovations to illustrate:")
@@ -178,8 +203,8 @@ def build_plot(df, analysis, cluster, indicator, metric, x_min, x_max, y_min, y_
     
     return fig
 
-x_min, x_max = st.slider("X range", -50, 200, (-10, 50))
-y_min, y_max = st.slider("Y range", -1, 50, (-1, 5))
+x_min, x_max = _persist(st.slider, "X range", -50, 200, (-10, 50), key="hubs_x_range")
+y_min, y_max = _persist(st.slider, "Y range", -1, 50, (-1, 5), key="hubs_y_range")
 
 fig = build_plot(data_df, analysis_radio, cluster_radio, indicator_radio, metric_radio, x_min, x_max, y_min, y_max)
 st.plotly_chart(fig, width='stretch')

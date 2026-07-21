@@ -17,10 +17,30 @@ st.set_page_config(layout="wide")  # add at the very top, before st.title
 
 st.title("Within innovations")
 
+
+def _persist(widget_fn, *args, key, **kwargs):
+    """Makes a keyed widget's value survive navigating to another page and back.
+
+    Streamlit deletes a widget's own session_state[key] entry whenever that widget isn't
+    rendered during a run (e.g. while a different page is showing) -
+    https://docs.streamlit.io/develop/concepts/multipage-apps/widgets. We mirror the value
+    into a second, plain (non-widget) session_state entry that this cleanup never touches,
+    and re-seed the widget's key from that mirror whenever it comes back.
+    """
+    shadow_key = f"_persist_{key}"
+    if shadow_key in st.session_state and key not in st.session_state:
+        st.session_state[key] = st.session_state[shadow_key]
+    value = widget_fn(*args, key=key, **kwargs)
+    st.session_state[shadow_key] = value
+    return value
+
+
 # Choose DoSI source
-source = st.radio(
+source = _persist(
+    st.radio,
     "Choose data source",
-    ["Repo file", "Upload local file"]
+    ["Repo file", "Upload local file"],
+    key="dashboard_source",
 )
 
 # Load data
@@ -243,13 +263,20 @@ with st.expander(
 col1, col2 = st.columns(2)
 
 with col1:
-    selected_innovation = st.selectbox("Select innovation", innovation_names, index=0)
+    selected_innovation = _persist(
+        st.selectbox,
+        "Select innovation", innovation_names, index=0, key="dashboard_selected_innovation",
+    )
 
 with col2:
-    selected_spatial_scale = st.selectbox(
+    # Keyed per-innovation, so switching innovation still resets this to its first option
+    # instead of erroring/sticking on a spatial scale that doesn't exist for the new one.
+    selected_spatial_scale = _persist(
+        st.selectbox,
         "Select spatial scale",
         sorted(list(dosi_df.loc[dosi_df["Innovation Name"] == selected_innovation, "Spatial Scale"].unique())),
         index=0,
+        key=f"dashboard_selected_spatial_scale_{selected_innovation}",
     )
 
 NUMBER_OF_COLUMNS = 8  # Number of columns in the grid
@@ -274,7 +301,8 @@ cols = st.columns(NUMBER_OF_COLUMNS)
 feature_states = {}
 for idx, label in enumerate(indicator_codes):
     with cols[idx % NUMBER_OF_COLUMNS]:
-        feature_states[label] = st.checkbox(
+        feature_states[label] = _persist(
+            st.checkbox,
             label + " " + indicator_names[idx],
             value=label in list(dosi_df.loc[
                 (dosi_df["Innovation Name"]==selected_innovation)
@@ -284,7 +312,10 @@ for idx, label in enumerate(indicator_codes):
             key=_feature_key(label),
         )
 
-selected_only = st.toggle("Show only logfits of selected or new timeseries", value=True)
+selected_only = _persist(
+    st.toggle,
+    "Show only logfits of selected or new timeseries", value=True, key="dashboard_selected_only",
+)
 
 
 # ──────────────────────────────────────────────────────────────

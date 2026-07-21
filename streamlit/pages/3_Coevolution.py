@@ -12,6 +12,23 @@ st.set_page_config(layout="wide")  # add at the very top, before st.title
 
 st.title("Coevolutions")
 
+
+def _persist(widget_fn, *args, key, **kwargs):
+    """Makes a keyed widget's value survive navigating to another page and back.
+
+    Streamlit deletes a widget's own session_state[key] entry whenever that widget isn't
+    rendered during a run (e.g. while a different page is showing) -
+    https://docs.streamlit.io/develop/concepts/multipage-apps/widgets. We mirror the value
+    into a second, plain (non-widget) session_state entry that this cleanup never touches,
+    and re-seed the widget's key from that mirror whenever it comes back.
+    """
+    shadow_key = f"_persist_{key}"
+    if shadow_key in st.session_state and key not in st.session_state:
+        st.session_state[key] = st.session_state[shadow_key]
+    value = widget_fn(*args, key=key, **kwargs)
+    st.session_state[shadow_key] = value
+    return value
+
 # load data
 # Get the path of the current script (inside streamlit/)
 ST_DIR = Path(__file__).parent.parent
@@ -26,28 +43,36 @@ grouper_options = [i for i in ['innovation', 'ID', 'metric', 'description'] if '
 # 1.  RADIO-BUTTON ROW  ────────────────────────────────────────
 # --------------------------------------------------------------
 
-cluster_radio = st.radio(
+cluster_radio = _persist(
+    st.radio,
     "Choose a cluster:",
     clusters,
     horizontal=True,
+    key="coev_cluster_radio",
 )
 
-indicator_radio = st.radio(
+indicator_radio = _persist(
+    st.radio,
     "Choose an innovation indicator number:",
     indicators,
     horizontal=True,
+    key="coev_indicator_radio",
 )
 
-metric_radio = st.radio(
+metric_radio = _persist(
+    st.radio,
     "Choose a metric to display in the plots:",
     coev_metrics,
     horizontal=True,
+    key="coev_metric_radio",
 )
 
-grouper_radio = st.radio(
+grouper_radio = _persist(
+    st.radio,
     "Choose the level of analysis for pairwise comparison:",
     grouper_options,
     horizontal=True,
+    key="coev_grouper_radio",
 )
 
 # ──────────────────────────────────────────────────────────────
@@ -67,7 +92,11 @@ cols = st.columns(N_COLS_SPATIAL)
 spatial_states = {}
 for idx, label in enumerate(spatials):
     with cols[idx % N_COLS_SPATIAL]:
-        spatial_states[label] = st.checkbox(label, value=False)
+        # Keyed per cluster/indicator, matching the analogous pattern in 2_Clusters.py.
+        spatial_states[label] = _persist(
+            st.checkbox,
+            label, value=False, key=f"coev_spatial_{cluster_radio}_{indicator_radio}_{label}",
+        )
 
 # ──────────────────────────────────────────────────────────────
 # 3.  PLOTLY FIGURE  ───────────────────────────────────────────
@@ -130,14 +159,19 @@ def build_plot(df, spatial, cluster, indicator, metric, grouper, best_fits, n_be
     return fig
 
 st.subheader("Pairwise timeseries fitting results for selected region(s):")
-n_fig_cols_radio = st.radio(
+n_fig_cols_radio = _persist(
+    st.radio,
     "Number of figures next to each other:",
     [1, 2, 3],
     horizontal=True,
+    key="coev_n_fig_cols_radio",
 )
-adjust_radio = st.toggle("View only best coevolutions", value=False)
+adjust_radio = _persist(st.toggle, "View only best coevolutions", value=False, key="coev_adjust_radio")
 if adjust_radio:
-    n_best_fits = st.number_input("Number of best fits", min_value=1, max_value=4)
+    n_best_fits = _persist(
+        st.number_input,
+        "Number of best fits", min_value=1, max_value=4, key="coev_n_best_fits",
+    )
 else:
     n_best_fits = 0
 
