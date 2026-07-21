@@ -284,7 +284,7 @@ def build_plot(
                     + (-1 if Dt < 0 else 1) * dosi_df[dosi_df["name"] == code]["Value"] / K,
                     mode="markers",
                     name=f"{innovation_name} K-normalized data ({region_name})",  # This can be the same name to link with the line in the legend
-                    hovertemplate=f"{innovation_name} ({region_name})<br>Description: {description_name}<br>Metric: {metric_name}<br>{code} Point<br>Year=%{{x:.0f}}<br>value=%{{y:.2f}}<extra></extra>",  # Custom tooltip
+                    hovertemplate=f"{innovation_name} ({region_name})<br>Description: {description_name}<br>Metric: {metric_name}<br>{code} Point<br>Year=%{{x:.0f}}<br>value=%{{y:.3g}}<extra></extra>",  # Custom tooltip
                     marker=dict(size=8, color=color),  # Same color for points as the line
                 )
             )
@@ -300,7 +300,7 @@ def build_plot(
                     name=code,  # Legend label
                     showlegend=False,
                     line=dict(color=color, width=2),
-                    hovertemplate=f"{innovation_name} ({region_name})<br>{code}<br>Year=%{{x:.0f}}<br>Value=%{{y:.2f}}<br>Dt={Dt:.0f} t0={t0:.0f} K={K:.2f}<extra></extra>",  # Custom tooltip
+                    hovertemplate=f"{innovation_name} ({region_name})<br>{code}<br>Year=%{{x:.0f}}<br>Value=%{{y:.3g}}<br>Dt={Dt:.0f} t0={t0:.0f} K={K:.3g}<extra></extra>",  # Custom tooltip
                 )
             )
 

@@ -273,7 +273,7 @@ def build_plot(inno, summary, inno_name, indicator_selection, spatial_selection)
                             showlegend=False,
                             line=dict(color=color, width=2),
                             opacity=1-j*0.8/len(groups),
-                            hovertemplate=f"""{code} <br>{code} ({metric[0]}: {metric[1]}) <br>Year=%{{x:.0f}}<br>Value=%{{y:.2f}}<br>Dt={Dt:.0f} t0={t0:.0f} K={K:.2f}<extra></extra>""",  # Custom tooltip
+                            hovertemplate=f"""{code} <br>{code} ({metric[0]}: {metric[1]}) <br>Year=%{{x:.0f}}<br>Value=%{{y:.3g}}<br>Dt={Dt:.0f} t0={t0:.0f} K={K:.3g}<extra></extra>""",  # Custom tooltip
                         )
                     )
                     
@@ -293,7 +293,7 @@ def build_plot(inno, summary, inno_name, indicator_selection, spatial_selection)
                         y=timeseries["Value"], # / K_dict[timeseries["name"].iloc[0]],
                         mode="markers",
                         name=f"{code} ({metric[0]}: {metric[1]})",  # This can be the same name to link with the line in the legend
-                        hovertemplate=f"""{code} ({metric[0]}: {metric[1]}) <br>{code} Point<br>Year=%{{x:.0f}}<br>value=%{{y:.2f}}<extra></extra>""",  # Custom tooltip
+                        hovertemplate=f"""{code} ({metric[0]}: {metric[1]}) <br>{code} Point<br>Year=%{{x:.0f}}<br>value=%{{y:.3g}}<extra></extra>""",  # Custom tooltip
                         marker=dict(size=8, color=color, line=dict(width=1, color="#777777")),
                         opacity=1-j*0.8/len(groups),
                     )
