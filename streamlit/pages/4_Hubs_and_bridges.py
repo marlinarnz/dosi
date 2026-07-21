@@ -109,6 +109,8 @@ metric_radio = _persist(
     key="hubs_metric_radio",
 )
 
+display_labels = st.toggle(f"Display {analysis_radio} labels?", value=False)
+
 # ──────────────────────────────────────────────────────────────
 # 2.  CHECKBOX GRID  (responsive X-column layout)  ─────────────
 # --------------------------------------------------------------
@@ -151,7 +153,7 @@ for idx, label in enumerate(available_spatial):
 # 3.  PLOTLY FIGURE  ───────────────────────────────────────────
 # --------------------------------------------------------------
 
-def build_plot(df, analysis, cluster, indicator, metric, x_min, x_max, y_min, y_max) -> go.Figure:
+def build_plot(df, analysis, cluster, indicator, metric, display_labels, x_min, x_max, y_min, y_max) -> go.Figure:
     
     # Filter for cluster and innovation indicator
     if cluster in clusters:
@@ -166,7 +168,8 @@ def build_plot(df, analysis, cluster, indicator, metric, x_min, x_max, y_min, y_
     analysis_innos = list(clusters_df.loc[clusters_df[analysis]==1, 'innovation_name'].str.lower())
     #analysis_innos = [i for i in analysis_innos if i in inno_states.keys() and inno_states[i]==True]
     data['marker'] = 'circle'
-    data.loc[(data['Innovation Name'].str.lower()).isin(analysis_innos), 'marker'] = 'cross'
+    analysis_marker = 'cross'
+    data.loc[(data['Innovation Name'].str.lower()).isin(analysis_innos), 'marker'] = analysis_marker
     
     # calculate x-axis reference point and time lag per spatial scale
     x_metric = "log_t0"
@@ -177,7 +180,7 @@ def build_plot(df, analysis, cluster, indicator, metric, x_min, x_max, y_min, y_
 
     fig = px.scatter(
         data,
-        x="diff",
+        x=x_metric,
         y=metric,
         color="Spatial Scale",
         symbol="marker",
@@ -187,7 +190,7 @@ def build_plot(df, analysis, cluster, indicator, metric, x_min, x_max, y_min, y_
             "Spatial Scale": True,
             "marker": True
         },
-        labels={"diff": f"time lag to {analysis}s", metric: metric}
+        labels={x_metric: "inflection point t0 of logfit", metric: metric}
     )
     
     # Apply axis limits if provided
@@ -199,12 +202,25 @@ def build_plot(df, analysis, cluster, indicator, metric, x_min, x_max, y_min, y_
     #fig.update_layout(legend_title="Spatial Scale", hovermode="closest")
     fig.update_layout(
         legend=dict(itemclick="toggleothers", itemdoubleclick="toggle"),
-        legend_title=f"Markers: cross={analysis}, circle=others")
+        legend_title=f"Markers: {analysis_marker}={analysis}, circle=others")
+    
+    # Annotate hubs or bridges
+    if display_labels:
+        for i, row in data.loc[data['marker']==analysis_marker].iterrows():
+            fig.add_annotation(
+                x=row[x_metric],
+                y=row[metric]*0.95,
+                text=f"{row['Innovation Name']}\n{row['Spatial Scale']}",
+                showarrow=False,
+                xanchor="center",
+                yanchor="middle",
+                font=dict(color='black'),
+            )
     
     return fig
 
-x_min, x_max = _persist(st.slider, "X range", -50, 200, (-10, 50), key="hubs_x_range")
-y_min, y_max = _persist(st.slider, "Y range", -1, 50, (-1, 5), key="hubs_y_range")
+x_min, x_max = _persist(st.slider, "X range", 1950, 2050, (2000, 2030), key="hubs_x_range")
+y_min, y_max = _persist(st.slider, "Y range", -1, 50, (0, 2), key="hubs_y_range")
 
-fig = build_plot(data_df, analysis_radio, cluster_radio, indicator_radio, metric_radio, x_min, x_max, y_min, y_max)
+fig = build_plot(data_df, analysis_radio, cluster_radio, indicator_radio, metric_radio,display_labels, x_min, x_max, y_min, y_max)
 st.plotly_chart(fig, width='stretch')
