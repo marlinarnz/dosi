@@ -228,6 +228,22 @@ prechecked = set(clusters_dict.get(active_choice, []))
 NUMBER_OF_COLUMNS = 5  # Number of columns in the grid
 
 st.subheader("Innovations included:")
+
+# Keys are scoped to the current cluster, so switching cluster still resets the
+# checkboxes to that cluster's default members instead of reusing stale state.
+def _innovation_key(label):
+    return f"cluster_feature_{active_choice}_{label}"
+
+col_all, col_none = st.columns(2)
+with col_all:
+    if st.button("All", key="innovations_select_all"):
+        for label in ALL_INNOVATION_CODES:
+            st.session_state[_innovation_key(label)] = True
+with col_none:
+    if st.button("None", key="innovations_select_none"):
+        for label in ALL_INNOVATION_CODES:
+            st.session_state[_innovation_key(label)] = False
+
 cols = st.columns(NUMBER_OF_COLUMNS)
 feature_states = {}
 
@@ -243,6 +259,7 @@ for idx, label in enumerate(ALL_INNOVATION_CODES):
         feature_states[label] = st.checkbox(
             display_name,
             value=label in prechecked,
+            key=_innovation_key(label),
         )
 
 indicator_radio = st.radio(
@@ -261,12 +278,28 @@ spatials = sorted(list(dosi_df.loc[
 
 N_COLS_SPATIAL = 8
 st.subheader("Spatial scales to display:")
+
+# Keys are scoped to the current cluster/indicator selection, so switching either one
+# still resets the checkboxes to their computed defaults instead of reusing stale state.
+def _spatial_key(label):
+    return f"cluster_spatial_{active_choice}_{indicator_radio}_{label}"
+
+col_all, col_none = st.columns(2)
+with col_all:
+    if st.button("All", key="spatials_select_all"):
+        for label in spatials:
+            st.session_state[_spatial_key(label)] = True
+with col_none:
+    if st.button("None", key="spatials_select_none"):
+        for label in spatials:
+            st.session_state[_spatial_key(label)] = False
+
 cols = st.columns(N_COLS_SPATIAL)
 
 spatial_states = {}
 for idx, label in enumerate(spatials):
     with cols[idx % N_COLS_SPATIAL]:
-        spatial_states[label] = st.checkbox(label, value=False if idx>1 else True)
+        spatial_states[label] = st.checkbox(label, value=False if idx>1 else True, key=_spatial_key(label))
 
 align_t0 = st.toggle("Align t0?", value=False)
 

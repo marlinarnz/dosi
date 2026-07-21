@@ -254,6 +254,22 @@ with col2:
 
 NUMBER_OF_COLUMNS = 8  # Number of columns in the grid
 st.subheader("Indicators included:")
+
+# Keys are scoped to the current innovation/spatial scale selection, so switching either
+# one still resets the checkboxes to their computed defaults instead of reusing stale state.
+def _feature_key(label):
+    return f"feature_{selected_innovation}_{selected_spatial_scale}_{label}"
+
+col_all, col_none = st.columns(2)
+with col_all:
+    if st.button("All", key="features_select_all"):
+        for label in indicator_codes:
+            st.session_state[_feature_key(label)] = True
+with col_none:
+    if st.button("None", key="features_select_none"):
+        for label in indicator_codes:
+            st.session_state[_feature_key(label)] = False
+
 cols = st.columns(NUMBER_OF_COLUMNS)
 feature_states = {}
 for idx, label in enumerate(indicator_codes):
@@ -265,6 +281,7 @@ for idx, label in enumerate(indicator_codes):
                 & (dosi_df["Spatial Scale"]==selected_spatial_scale)
                 , "Indicator Number"
             ].unique()),
+            key=_feature_key(label),
         )
 
 selected_only = st.toggle("Show only logfits of selected or new timeseries", value=True)
@@ -419,4 +436,7 @@ def build_plot(inno, summary, inno_name, indicator_selection, spatial_selection)
 
 
 fig = build_plot(dosi_df, summary_df, selected_innovation, feature_states, selected_spatial_scale)
-st.plotly_chart(fig, width='stretch')
+if fig is None:
+    st.info("No indicators selected - check at least one above to show a plot.")
+else:
+    st.plotly_chart(fig, width='stretch')
