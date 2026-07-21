@@ -146,6 +146,66 @@ def FPLogValue_with_scaling(x, t0, Dt, s):
     return s / (1 + np.exp(-np.log(81) * (x - t0) / Dt))
 
 
+# Points sharing the same year (data is annual, so no window is needed there) count as
+# "overlapping" if their y-values are within this fraction of a series' own magnitude -
+# a per-series tolerance, so a sparse/tiny series isn't swamped by a tolerance sized for
+# a much larger series sharing the same plot. Overlapping points get a combined tooltip
+# with the hovered point's own detail first (bolded) and the others condensed to one line.
+OVERLAP_LOOSE_Y_TOL_FRAC = 0.02
+
+# Within an already-overlapping pair, if the two y-values are ALSO within this fraction
+# of the smaller of the two - i.e. they're effectively duplicates, not just "close on the
+# chart" - show that point in full instead of condensing it to one line.
+OVERLAP_TIGHT_Y_TOL_FRAC = 0.005
+
+# Marker fill alpha for scatter points, capped here (and used as the flat value in
+# 2_Clusters.py, which has no per-group opacity tiers) so overlapping points blend
+# into a visibly different color rather than one fully occluding another.
+MARKER_MAX_OPACITY = 0.6
+
+
+def _series_epsilon(values, frac=OVERLAP_LOOSE_Y_TOL_FRAC, floor=1e-9):
+    """Tolerance derived from a series' own magnitude, so sparse/tiny series aren't
+    swamped by a tolerance sized for a much larger series sharing the same plot."""
+    values = np.abs(np.asarray(values, dtype=float))
+    return max(frac * values.max(), floor) if values.size else floor
+
+
+def _build_overlap_aware_hovertext(x, y, own_html, other_html, eps_y):
+    """Combines tooltips for points that share the same year and fall within a
+    scale-dependent tolerance window (eps_y, per series) of each other, so near-identical
+    points don't silently hide one another. Never moves a point (no jitter) - this only
+    changes what the tooltip shows. The hovered point's own detail is always listed first
+    and bolded. Among the rest, pairs that are within OVERLAP_TIGHT_Y_TOL_FRAC of each
+    other (true near-duplicates, not just "close on this chart's scale") are shown in
+    full; anything looser is condensed into a one-line summary."""
+    x = np.asarray(x, dtype=float)
+    y = np.asarray(y, dtype=float)
+    n = len(x)
+    hovertext = []
+    for i in range(n):
+        tight, loose = [], []
+        for j in range(n):
+            if j == i or x[j] != x[i]:
+                continue
+            if abs(y[j] - y[i]) > max(eps_y[i], eps_y[j]):
+                continue  # not overlapping at all
+            tight_tol = OVERLAP_TIGHT_Y_TOL_FRAC * min(abs(y[i]), abs(y[j]))
+            if abs(y[j] - y[i]) <= tight_tol:
+                tight.append(own_html[j])
+            else:
+                loose.append(other_html[j])
+
+        if not tight and not loose:
+            hovertext.append(own_html[i])
+            continue
+        blocks = [f"<b>{own_html[i]}</b>"] + tight
+        if loose:
+            blocks.append(f"+{len(loose)} overlapping point(s):<br>" + "<br>".join(loose))
+        hovertext.append("<br><br>".join(blocks))
+    return hovertext
+
+
 # ──────────────────────────────────────────────────────────────
 # 1. Clusters: RADIO-BUTTON ROW
 # ----------------------------------------------------------------
@@ -243,6 +303,7 @@ def build_plot(
         colors = px.colors.qualitative.Set1  # Set1 is a predefined color palette
 
         fig = go.Figure()
+        marker_traces_meta = []
 
         for i, code in enumerate(cluster_innovations_summary_df["name"]):
             t0 = cluster_innovations_summary_df[
@@ -276,18 +337,32 @@ def build_plot(
                 i % len(colors)
             ]  # Cycle through the colors if more codes than colors
 
-            # Add the points trace (same color as line)
-            fig.add_trace(
-                go.Scatter(
-                    x=dosi_df[dosi_df["name"] == code]["Year"] - (t0 if align_t0 else 0),
-                    y=(1 / K if Dt < 0 else 0)
-                    + (-1 if Dt < 0 else 1) * dosi_df[dosi_df["name"] == code]["Value"] / K,
-                    mode="markers",
-                    name=f"{innovation_name} K-normalized data ({region_name})",  # This can be the same name to link with the line in the legend
-                    hovertemplate=f"{innovation_name} ({region_name})<br>Description: {description_name}<br>Metric: {metric_name}<br>{code} Point<br>Year=%{{x:.0f}}<br>value=%{{y:.3g}}<extra></extra>",  # Custom tooltip
-                    marker=dict(size=8, color=color),  # Same color for points as the line
-                )
-            )
+            # Defer the points trace: overlap-aware hover text needs to see every
+            # code's points together, so we collect them and add the traces once the
+            # whole loop (across all codes) has finished, below.
+            x_values = (dosi_df[dosi_df["name"] == code]["Year"] - (t0 if align_t0 else 0)).tolist()
+            y_values = (
+                (1 / K if Dt < 0 else 0)
+                + (-1 if Dt < 0 else 1) * dosi_df[dosi_df["name"] == code]["Value"] / K
+            ).tolist()
+            eps_y = _series_epsilon(y_values)
+            own_html = [
+                f"{innovation_name} ({region_name})<br>Description: {description_name}<br>Metric: {metric_name}<br>{code} Point<br>Year={x:.0f}<br>value={y:.3g}"
+                for x, y in zip(x_values, y_values)
+            ]
+            other_html = [
+                f"{code} ({innovation_name}, {region_name}): Year={x:.0f}, value={y:.3g}"
+                for x, y in zip(x_values, y_values)
+            ]
+            marker_traces_meta.append(dict(
+                x=x_values,
+                y=y_values,
+                eps_y=[eps_y] * len(y_values),
+                own_html=own_html,
+                other_html=other_html,
+                name=f"{innovation_name} K-normalized data ({region_name})",  # This can be the same name to link with the line in the legend
+                color=color,
+            ))
 
             fig.add_trace(
                 go.Scatter(
@@ -332,6 +407,31 @@ def build_plot(
 
             # ⬆️ add this *once* after all traces and just before returning the figure
             fig.update_layout(height=900)  # make the plot taller
+
+        if marker_traces_meta:
+            all_x = [x for m in marker_traces_meta for x in m["x"]]
+            all_y = [y for m in marker_traces_meta for y in m["y"]]
+            all_eps_y = [e for m in marker_traces_meta for e in m["eps_y"]]
+            all_own = [h for m in marker_traces_meta for h in m["own_html"]]
+            all_other = [h for m in marker_traces_meta for h in m["other_html"]]
+            all_hovertext = _build_overlap_aware_hovertext(all_x, all_y, all_own, all_other, all_eps_y)
+
+            offset = 0
+            for m in marker_traces_meta:
+                n_points = len(m["x"])
+                fig.add_trace(
+                    go.Scatter(
+                        x=m["x"],
+                        y=m["y"],
+                        mode="markers",
+                        name=m["name"],
+                        text=all_hovertext[offset:offset + n_points],
+                        hovertemplate="%{text}<extra></extra>",
+                        marker=dict(size=8, color=m["color"]),  # Same color for points as the line
+                        opacity=MARKER_MAX_OPACITY,
+                    )
+                )
+                offset += n_points
 
         return fig
 

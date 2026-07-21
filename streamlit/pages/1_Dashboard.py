@@ -98,6 +98,66 @@ def FPLogValue_with_scaling(x, t0, Dt, s):
     return s / (1 + np.exp(-np.log(81) * (x - t0) / Dt))
 
 
+# Points sharing the same year (data is annual, so no window is needed there) count as
+# "overlapping" if their y-values are within this fraction of a series' own magnitude -
+# a per-series tolerance, so a sparse/tiny series isn't swamped by a tolerance sized for
+# a much larger series sharing the same plot. Overlapping points get a combined tooltip
+# with the hovered point's own detail first (bolded) and the others condensed to one line.
+OVERLAP_LOOSE_Y_TOL_FRAC = 0.02
+
+# Within an already-overlapping pair, if the two y-values are ALSO within this fraction
+# of the smaller of the two - i.e. they're effectively duplicates, not just "close on the
+# chart" - show that point in full instead of condensing it to one line.
+OVERLAP_TIGHT_Y_TOL_FRAC = 0.005
+
+# Marker fill alpha for scatter points, capped here (and used as the flat value in
+# 2_Clusters.py, which has no per-group opacity tiers) so overlapping points blend
+# into a visibly different color rather than one fully occluding another.
+MARKER_MAX_OPACITY = 0.6
+
+
+def _series_epsilon(values, frac=OVERLAP_LOOSE_Y_TOL_FRAC, floor=1e-9):
+    """Tolerance derived from a series' own magnitude, so sparse/tiny series aren't
+    swamped by a tolerance sized for a much larger series sharing the same plot."""
+    values = np.abs(np.asarray(values, dtype=float))
+    return max(frac * values.max(), floor) if values.size else floor
+
+
+def _build_overlap_aware_hovertext(x, y, own_html, other_html, eps_y):
+    """Combines tooltips for points that share the same year and fall within a
+    scale-dependent tolerance window (eps_y, per series) of each other, so near-identical
+    points don't silently hide one another. Never moves a point (no jitter) - this only
+    changes what the tooltip shows. The hovered point's own detail is always listed first
+    and bolded. Among the rest, pairs that are within OVERLAP_TIGHT_Y_TOL_FRAC of each
+    other (true near-duplicates, not just "close on this chart's scale") are shown in
+    full; anything looser is condensed into a one-line summary."""
+    x = np.asarray(x, dtype=float)
+    y = np.asarray(y, dtype=float)
+    n = len(x)
+    hovertext = []
+    for i in range(n):
+        tight, loose = [], []
+        for j in range(n):
+            if j == i or x[j] != x[i]:
+                continue
+            if abs(y[j] - y[i]) > max(eps_y[i], eps_y[j]):
+                continue  # not overlapping at all
+            tight_tol = OVERLAP_TIGHT_Y_TOL_FRAC * min(abs(y[i]), abs(y[j]))
+            if abs(y[j] - y[i]) <= tight_tol:
+                tight.append(own_html[j])
+            else:
+                loose.append(other_html[j])
+
+        if not tight and not loose:
+            hovertext.append(own_html[i])
+            continue
+        blocks = [f"<b>{own_html[i]}</b>"] + tight
+        if loose:
+            blocks.append(f"+{len(loose)} overlapping point(s):<br>" + "<br>".join(loose))
+        hovertext.append("<br><br>".join(blocks))
+    return hovertext
+
+
 # ──────────────────────────────────────────────────────────────
 # Casing homologation report: which merged innovations have data
 # split across their old casings and would benefit from a unified refit
@@ -246,6 +306,7 @@ def build_plot(inno, summary, inno_name, indicator_selection, spatial_selection)
         colors = px.colors.qualitative.Set1  # Set1 is a predefined color palette
 
         fig = go.Figure()
+        marker_traces_meta = []
 
         for i, code in enumerate(innovation_df["Indicator Number"].unique()):
 
@@ -286,18 +347,29 @@ def build_plot(inno, summary, inno_name, indicator_selection, spatial_selection)
             groups = innovation_df[innovation_df["Indicator Number"] == code].groupby(group_vars)
             for j, (metric, timeseries) in enumerate(groups):
 
-                # Add the points trace (same color as line)
-                fig.add_trace(
-                    go.Scatter(
-                        x=timeseries["Year"],
-                        y=timeseries["Value"], # / K_dict[timeseries["name"].iloc[0]],
-                        mode="markers",
-                        name=f"{code} ({metric[0]}: {metric[1]})",  # This can be the same name to link with the line in the legend
-                        hovertemplate=f"""{code} ({metric[0]}: {metric[1]}) <br>{code} Point<br>Year=%{{x:.0f}}<br>value=%{{y:.3g}}<extra></extra>""",  # Custom tooltip
-                        marker=dict(size=8, color=color, line=dict(width=1, color="#777777")),
-                        opacity=1-j*0.8/len(groups),
-                    )
-                )
+                # Defer the points trace: overlap-aware hover text needs to see every
+                # code/metric's points together, so we collect them and add the traces
+                # once the whole loop (across all codes) has finished, below.
+                values = timeseries["Value"]# / K_dict[timeseries["name"].iloc[0]]
+                eps_y = _series_epsilon(values)
+                own_html = [
+                    f"{code} ({metric[0]}: {metric[1]})<br>{code} Point<br>Year={year:.0f}<br>value={value:.3g}"
+                    for year, value in zip(timeseries["Year"], values)
+                ]
+                other_html = [
+                    f"{code} ({metric[0]}: {metric[1]}): Year={year:.0f}, value={value:.3g}"
+                    for year, value in zip(timeseries["Year"], values)
+                ]
+                marker_traces_meta.append(dict(
+                    x=timeseries["Year"].tolist(),
+                    y=values.tolist(),
+                    eps_y=[eps_y] * len(values),
+                    own_html=own_html,
+                    other_html=other_html,
+                    name=f"{code} ({metric[0]}: {metric[1]})",  # This can be the same name to link with the line in the legend
+                    color=color,
+                    opacity=min(MARKER_MAX_OPACITY, 1-j*0.8/len(groups)),
+                ))
 
                 # centroid of the scatter points
                 x_centroid = timeseries["Year"].mean()
@@ -311,6 +383,31 @@ def build_plot(inno, summary, inno_name, indicator_selection, spatial_selection)
                     yanchor="middle",
                     font=dict(color=color),  # label colour = line colour
                 )
+
+        if marker_traces_meta:
+            all_x = [x for m in marker_traces_meta for x in m["x"]]
+            all_y = [y for m in marker_traces_meta for y in m["y"]]
+            all_eps_y = [e for m in marker_traces_meta for e in m["eps_y"]]
+            all_own = [h for m in marker_traces_meta for h in m["own_html"]]
+            all_other = [h for m in marker_traces_meta for h in m["other_html"]]
+            all_hovertext = _build_overlap_aware_hovertext(all_x, all_y, all_own, all_other, all_eps_y)
+
+            offset = 0
+            for m in marker_traces_meta:
+                n_points = len(m["x"])
+                fig.add_trace(
+                    go.Scatter(
+                        x=m["x"],
+                        y=m["y"],
+                        mode="markers",
+                        name=m["name"],
+                        text=all_hovertext[offset:offset + n_points],
+                        hovertemplate="%{text}<extra></extra>",
+                        marker=dict(size=8, color=m["color"], line=dict(width=0.5, color="rgba(255,255,255,0.5)")),
+                        opacity=m["opacity"],
+                    )
+                )
+                offset += n_points
 
         fig.update_layout(
             title="Innovation " + inno_name + " in " + spatial_selection,
