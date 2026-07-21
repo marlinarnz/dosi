@@ -28,6 +28,12 @@ try:
 except FileNotFoundError:
     st.error(f"⚠️ Data version '{version}' not found. Please make sure the most recent logfit estimation file ends with a 'v' followed by a two-digit number.")
     st.stop()
+
+# Homologate to lowercase: source spreadsheets used inconsistent casing (e.g. "E-commerce"
+# vs "e-commerce") for the same innovation. clusters_dict below is already lowercased, so
+# without this, rows with non-lowercase casing would silently fail the isin() match at line ~51.
+data_df["Innovation Name"] = data_df["Innovation Name"].str.rstrip().str.lower()
+
 # filter for chosen time series (and nan)
 data_df = data_df.loc[(data_df['select_1.1_allregions_FIN']!=0) | (data_df['select_1.1_allregions_FIN'].isna())]
 

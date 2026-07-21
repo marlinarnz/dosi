@@ -56,12 +56,18 @@ dosi_df = dosi_df.dropna(subset=["Value"])
 dosi_df["Spatial Scale"] = dosi_df["Spatial Scale"].str.rstrip()
 dosi_df["Innovation Name"] = dosi_df["Innovation Name"].str.rstrip()
 
+# Homologate to lowercase: source spreadsheets used inconsistent casing (e.g. "E-commerce"
+# vs "e-commerce") for the same innovation, which would otherwise split it into two names
+# when matching dosi_df rows to summary_df rows via the 'name' identifier built below.
+dosi_df["Innovation Name"] = dosi_df["Innovation Name"].str.lower()
+
 
 # Logfit estimates
 summary_df = pd.concat([
         pd.read_csv(fn_summary, converters={"Indicator Number": str}),
         pd.read_csv(fn_summary_hatch, converters={"Indicator Number": str}),
 ])
+summary_df["Innovation Name"] = summary_df["Innovation Name"].str.rstrip().str.lower()
 
 
 # early-adopting regions

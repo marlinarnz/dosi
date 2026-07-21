@@ -67,6 +67,15 @@ dosi_df = dosi_df.dropna(subset=["Value"])
 # Correct for trailing spaces in the data
 dosi_df["Spatial Scale"] = dosi_df["Spatial Scale"].str.rstrip()
 dosi_df["Innovation Name"] = dosi_df["Innovation Name"].str.rstrip()
+summary_df["Innovation Name"] = summary_df["Innovation Name"].str.rstrip()
+
+# Homologate innovation names to lowercase: the source spreadsheets used inconsistent
+# casing (e.g. "E-commerce" vs "e-commerce") for the same innovation, which otherwise
+# shows up as separate, incomplete entries in the selector below.
+raw_dosi_innovation_names = dosi_df["Innovation Name"]
+raw_summary_innovation_names = summary_df["Innovation Name"]
+dosi_df["Innovation Name"] = raw_dosi_innovation_names.str.lower()
+summary_df["Innovation Name"] = raw_summary_innovation_names.str.lower()
 
 sorted_inno_index = dosi_df.sort_values("Innovation Name", key=lambda col: col.str.lower()).index
 innovation_names = dosi_df.loc[sorted_inno_index, "Innovation Name"].drop_duplicates().tolist()
@@ -87,6 +96,87 @@ def FPLogValue_with_scaling(x, t0, Dt, s):
     Logistic function with vertical scaling.|
     """
     return s / (1 + np.exp(-np.log(81) * (x - t0) / Dt))
+
+
+# ──────────────────────────────────────────────────────────────
+# Casing homologation report: which merged innovations have data
+# split across their old casings and would benefit from a unified refit
+# ──────────────────────────────────────────────────────────────
+
+casing_map = {}
+for raw in pd.concat([raw_dosi_innovation_names, raw_summary_innovation_names]).dropna().unique():
+    casing_map.setdefault(raw.lower(), set()).add(raw)
+merged_innovations = {k: sorted(v) for k, v in casing_map.items() if len(v) > 1}
+
+with st.expander(
+    f"ℹ️ Innovation names homologated to lowercase ({len(merged_innovations)} innovations affected)",
+    expanded=False,
+):
+    if not merged_innovations:
+        st.success("No casing duplicates found in the currently loaded data.")
+    else:
+        st.write(
+            "These innovations appeared under multiple casings in the source data "
+            "(e.g. from different source spreadsheets) and are merged below under a single lowercase name:"
+        )
+        st.dataframe(
+            pd.DataFrame(
+                [
+                    {"Innovation (homologated)": k, "Original casings found": ", ".join(v)}
+                    for k, v in sorted(merged_innovations.items())
+                ]
+            ),
+            hide_index=True,
+        )
+
+        summary_df["_raw_innovation_name"] = raw_summary_innovation_names
+        group_cols = ["Innovation Name", "Spatial Scale", "Indicator Number", "Description", "Metric"]
+        flag_rows = []
+        for group_key, group in summary_df[
+            summary_df["Innovation Name"].isin(merged_innovations.keys())
+        ].groupby(group_cols):
+            variants = group["_raw_innovation_name"].dropna().unique()
+            if len(variants) > 1:
+                for _, row in group.iterrows():
+                    flag_rows.append(
+                        {
+                            "Innovation (homologated)": group_key[0],
+                            "Spatial Scale": group_key[1],
+                            "Indicator Number": group_key[2],
+                            "Description": group_key[3],
+                            "Metric": group_key[4],
+                            "Original casing": row["_raw_innovation_name"],
+                            "log_t0": row.get("log_t0"),
+                            "log_Dt": row.get("log_Dt"),
+                            "log_K": row.get("log_K"),
+                            "log_r2": row.get("log_r2"),
+                            "n_data_points": row.get("n_data_points"),
+                        }
+                    )
+        summary_df.drop(columns=["_raw_innovation_name"], inplace=True)
+
+        if not flag_rows:
+            st.success(
+                "No overlapping (spatial scale, indicator, description, metric) combos found "
+                "across the merged casings — homologation is a pure rename here, no re-fit needed."
+            )
+        else:
+            flag_df = pd.DataFrame(flag_rows)
+            n_flagged = flag_df[group_cols[:1] + group_cols[1:]].drop_duplicates().shape[0]
+            st.warning(
+                f"{n_flagged} series now share the same (innovation, spatial scale, indicator, "
+                "description, metric) key across different original casings, each with its own "
+                "separately-fitted curve stored in the summary table. These are candidates for "
+                "being refit as a single, unified series — flagged here for manual review, "
+                "**not** refit automatically."
+            )
+            st.dataframe(flag_df, hide_index=True)
+            st.download_button(
+                "Download re-fit flag report (CSV)",
+                flag_df.to_csv(index=False),
+                file_name="innovation_casing_refit_flags.csv",
+                mime="text/csv",
+            )
 
 # Create menu
 

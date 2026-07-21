@@ -80,14 +80,18 @@ if summary_files:
             converters={"Indicator Number": str},
         )
         summary_df["Spatial Scale"] = summary_df["Spatial Scale"].str.rstrip()
-        summary_df["Innovation Name"] = summary_df["Innovation Name"].str.rstrip()
+        # Homologate to lowercase: source spreadsheets used inconsistent casing (e.g.
+        # "E-commerce" vs "e-commerce") for the same innovation, which would otherwise
+        # split it into separate, incomplete dropdown entries below.
+        summary_df["Innovation Name"] = summary_df["Innovation Name"].str.rstrip().str.lower()
     except FileNotFoundError:
         summary_df = None
 
 dosi_df["Value"] = pd.to_numeric(dosi_df["Value"], errors="coerce")
 dosi_df = dosi_df.dropna(subset=["Value"])
 dosi_df["Spatial Scale"] = dosi_df["Spatial Scale"].str.rstrip()
-dosi_df["Innovation Name"] = dosi_df["Innovation Name"].str.rstrip()
+# Homologate to lowercase (see summary_df above for rationale).
+dosi_df["Innovation Name"] = dosi_df["Innovation Name"].str.rstrip().str.lower()
 
 
 # ──────────────────────────────────────────────────────────────
