@@ -19,7 +19,7 @@ data_df = pd.read_csv(ST_DIR / '../data/results_coevolution_logistic_selected.cs
 adjustments = list(data_df['adjustment'].unique())
 clusters = list(data_df['cluster'].unique())
 indicators = list(data_df['indicator'].unique())
-coev_metrics = [i for i in ['R_square_weighted', 'R_square', 'R_square_adj', 'time_lag'] if i in data_df.columns]
+coev_metrics = [i for i in ['R_square_weighted', 'R_square', 'R_square_adj', 'slope_ratio', 'time_lag'] if i in data_df.columns]
 grouper_options = [i for i in ['innovation', 'ID', 'metric', 'description'] if 'i_'+i in data_df.columns]
 
 # ──────────────────────────────────────────────────────────────
@@ -126,6 +126,10 @@ def build_plot(df, spatial, cluster, indicator, metric, grouper, best_fits, n_be
         fig.update_coloraxes(cmin=0, cmax=1, showscale=False)
     elif metric == 'time_lag':
         fig.update_coloraxes(cmid=0, colorscale=[[0.0, "#b30000"], [0.5, "#ffffff"], [1.0, "#b30000"]])
+    elif metric == 'slope_ratio':
+        cmax = int(np.nanmax(data.values)) + 1
+        p = 1 / cmax
+        fig.update_coloraxes(cmin=0, cmax=cmax, colorscale=[[0.0, "#ffffff"], [min(1, p-0.05), "#ffcccc"], [p, "#b30000"], [min(1, p+0.05), "#ffcccc"], [1.0, "#ffffff"]])
 
     return fig
 

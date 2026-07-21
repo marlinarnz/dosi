@@ -11,7 +11,7 @@ from scipy.stats import linregress
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 
-VERSION_FOR_DATA = "v32"
+VERSION_FOR_DATA = "v34"
 VERSION_FOR_METADATA = "v26"
 VERSION_CLUSTER_DF = "innovation_list_HWLclusters_v3.0.xlsx"
 RENUMBER_METADATA_CODES = False
@@ -434,6 +434,7 @@ def logistic_fitting(single_series=False):
     R_square_adj = []
     R_square_weighted = []
     time_lag = []
+    slope_ratio = []
     group_vars = ['Innovation Name', 'Description', 'Metric'] # defines one time series
     dosi['name'] = dosi['Spatial Scale']
     hatch['name'] = hatch['Spatial Scale']
@@ -470,13 +471,19 @@ def logistic_fitting(single_series=False):
             data['name'].map(selection_dict).astype(bool) # take all with 1 in selection column
             | data['name'].map(selection_dict).isna()] # take all that don't appear in selection column
     
-    # Get inflection point from single fits
+    # Get inflection point and slope from single fits
     t0_dict = summary.set_index('name')['log_t0'].to_dict()
     if len(t0_dict) < len(timeseries):
         missing_vals = data.loc[~data['name'].isin(t0_dict.keys())
                                 ].groupby('name').apply(lambda g: estimate_logfit(g)['t0'])
         t0_dict.update(missing_vals.to_dict())
     data['t0'] = data['name'].map(t0_dict)
+    slope_dict = summary.set_index('name')['slope_log'].to_dict()
+    if len(slope_dict) < len(timeseries):
+        missing_vals = data.loc[~data['name'].isin(slope_dict.keys())
+                                ].groupby('name').apply(lambda g: estimate_logfit(g)['Dt']) # function already scales with log(81)
+        slope_dict.update(missing_vals.to_dict())
+    data['slope'] = data['name'].map(slope_dict)
     
     # Assign cluster definitions
     # Data explodes since an innovation may occur in multiple clusters
@@ -512,7 +519,7 @@ def logistic_fitting(single_series=False):
                     
                     # Build groups = time series
                     data_ = data.loc[mask & (data['Spatial Scale'].isin(spatial_list))].reset_index(drop=True)
-                    groups = [g[['name', 'Value', 'Year', 't0']+group_vars] for _, g
+                    groups = [g[['name', 'Value', 'Year', 't0', 'slope']+group_vars] for _, g
                               in data_.groupby(group_vars)]
                     if len(groups) > 1 and len(data_) > 6:
                         
@@ -565,6 +572,18 @@ def logistic_fitting(single_series=False):
                                         t0j = res['t0']
                                     time_lag.append(t0i - t0j)
                                     
+                                    # Calculate ratio of slopes
+                                    def get_slope(g):
+                                        s = g['slope'].mean()
+                                        if s <= 0 or s >= 2:
+                                            s = np.nan
+                                        return s
+                                    #try:
+                                    ratio = get_slope(groups[i]) / get_slope(groups[j])
+                                    #except:
+                                    #    ratio = np.nan
+                                    slope_ratio.append(ratio)
+                                    
                                     adjustments.append(adjustment)
                                     cluster_names.append(cluster)
                                     indicators.append(indicator)
@@ -585,7 +604,9 @@ def logistic_fitting(single_series=False):
                             'i_description':i_descriptions, 'j_description':j_descriptions,
                             't0':t0, 'Dt':Dt, 'K':K,
                             'R_square':R_square, 'R_square_adj':R_square_adj,
-                            'R_square_weighted':R_square_weighted, 'time_lag':time_lag})
+                            'R_square_weighted':R_square_weighted,
+                            'time_lag':time_lag,
+                            'slope_ratio':slope_ratio})
     return results
 
 
