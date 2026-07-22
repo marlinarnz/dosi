@@ -36,7 +36,7 @@ clusters_df = pd.read_excel(ST_DIR / f'../data/{VERSION_CLUSTER_DF}', sheet_name
 # Take only innovations with time series
 clusters_df = clusters_df.loc[clusters_df['timeseries']==1]
 
-analysis = [x for x in ['hub', 'bridge'] if x in clusters_df.columns]
+analysis = [x for x in ['foundational', 'hub', 'bridge'] if x in clusters_df.columns]
 clusters = [c for c in ['digital', 'health', 'prosumer', 'sufficiency'] if c in clusters_df.columns]
 indicators = list(data_df['Indicator Number'].unique())
 metrics = [x for x in ['slope_log', 'log_t0', 'log_Dt', 'log_K', 'log_r2'] if x in data_df.columns]
@@ -146,12 +146,18 @@ def build_plot(df, analysis, cluster, indicator, metric, display_labels, x_min, 
                         ].groupby('Spatial Scale')[x_metric].mean()
     data['xref'] = data['Spatial Scale'].map(xref_dict)
     data["diff"] = data[x_metric] - data['xref']
+    
+    # assign a consistent color per Spatial Scale so lines match the scatter colors
+    scales = data['Spatial Scale'].unique()
+    palette = px.colors.qualitative.Plotly
+    color_map = {scale: palette[i % len(palette)] for i, scale in enumerate(scales)}
 
     fig = px.scatter(
         data,
         x=x_metric,
         y=metric,
         color="Spatial Scale",
+        color_discrete_map=color_map,
         symbol="marker",
         symbol_map={m: m for m in data["marker"].dropna().unique()},
         hover_data={
@@ -161,6 +167,32 @@ def build_plot(df, analysis, cluster, indicator, metric, display_labels, x_min, 
         },
         labels={x_metric: "inflection point t0 of logfit", metric: metric}
     )
+    
+    # Build connecting lines: every cross <-> every circle, within the same Spatial Scale
+    line_traces = []
+    for scale, group in data.groupby('Spatial Scale'):
+        crosses = group[group['marker'] == 'cross']
+        circles = group[group['marker'] == 'circle']
+        line_color = color_map[scale]
+
+        for _, cross_row in crosses.iterrows():
+            for _, circle_row in circles.iterrows():
+                line_traces.append(go.Scatter(
+                    x=[cross_row[x_metric], circle_row[x_metric]],
+                    y=[cross_row[metric], circle_row[metric]],
+                    mode='lines',
+                    line=dict(color=line_color, width=1),
+                    opacity=0.4,
+                    showlegend=False,
+                    hoverinfo='skip'
+                ))
+
+    # Put lines *underneath* the markers by prepending them to fig.data
+    n_scatter_traces = len(fig.data)
+    fig.add_traces(line_traces)
+    n_total = len(fig.data)
+    new_order = list(range(n_scatter_traces, n_total)) + list(range(n_scatter_traces))
+    fig.data = [fig.data[i] for i in new_order]
     
     # Apply axis limits if provided
     if x_min is not None or x_max is not None:
