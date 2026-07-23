@@ -80,6 +80,8 @@ metric_radio = st.radio(
 
 display_labels = st.toggle(f"Display {analysis_radio} labels?", value=False)
 
+x_year = st.toggle(f"Display t2.5% instead of t0?", value=False)
+
 # ──────────────────────────────────────────────────────────────
 # 2.  CHECKBOX GRID  (responsive X-column layout)  ─────────────
 # --------------------------------------------------------------
@@ -122,7 +124,7 @@ for idx, label in enumerate(available_spatial):
 # 3.  PLOTLY FIGURE  ───────────────────────────────────────────
 # --------------------------------------------------------------
 
-def build_plot(df, analysis, cluster, indicator, metric, display_labels, x_min, x_max, y_min, y_max) -> go.Figure:
+def build_plot(df, analysis, cluster, indicator, metric, display_labels, x_year, x_min, x_max, y_min, y_max) -> go.Figure:
     
     # Filter for cluster and innovation indicator
     if cluster in clusters:
@@ -147,6 +149,20 @@ def build_plot(df, analysis, cluster, indicator, metric, display_labels, x_min, 
     data['xref'] = data['Spatial Scale'].map(xref_dict)
     data["diff"] = data[x_metric] - data['xref']
     
+    # Calculate x-axis time lag based on t2.5
+    if x_year:
+        def year_at_level(t0, Dt, K, target=0.025):
+            """
+            Inverse of f(x) = K / (1 + exp(-ln(81)*(x - t0)/Dt))
+            Returns the year x at which f(x) == target.
+            """
+            if np.isnan(t0) or np.isnan(Dt) or np.isnan(K): return np.nan
+            if not (0 < target < K):
+                raise ValueError(f"target must be between 0 and K={K}")
+            return t0 + (Dt / np.log(81)) * np.log(target / (K - target))
+        x_metric = 't25'
+        data[x_metric] = data.apply(lambda x: year_at_level(x['log_t0'], x['log_Dt'], x['log_K']), axis=1)
+    
     # assign a consistent color per Spatial Scale so lines match the scatter colors
     scales = data['Spatial Scale'].unique()
     palette = px.colors.qualitative.Plotly
@@ -165,7 +181,8 @@ def build_plot(df, analysis, cluster, indicator, metric, display_labels, x_min, 
             "Spatial Scale": True,
             "marker": True
         },
-        labels={x_metric: "inflection point t0 of logfit", metric: metric}
+        labels={x_metric: "t2.5 of logfit (year of 2.5% market share)" if x_year else "inflection point t0 of logfit",
+                metric: metric}
     )
     
     # Build connecting lines: every cross <-> every circle, within the same Spatial Scale
@@ -220,8 +237,8 @@ def build_plot(df, analysis, cluster, indicator, metric, display_labels, x_min, 
     
     return fig
 
-x_min, x_max = st.slider("X range", 1950, 2050, (2000, 2030))
+x_min, x_max = st.slider("X range", 1900, 2050, (1980, 2030))
 y_min, y_max = st.slider("Y range", -1, 50, (0, 2))
 
-fig = build_plot(data_df, analysis_radio, cluster_radio, indicator_radio, metric_radio,display_labels, x_min, x_max, y_min, y_max)
+fig = build_plot(data_df, analysis_radio, cluster_radio, indicator_radio, metric_radio,display_labels, x_year, x_min, x_max, y_min, y_max)
 st.plotly_chart(fig, width='stretch')
